@@ -1,0 +1,157 @@
+@startuml 03_Create_New_Project
+title Flow 3: Create New Project
+autonumber
+
+' Participants
+actor User
+participant "main.py\n::ConsoleEditor" as Main
+participant "models/project.py\n::Project" as Project
+participant "models/timeline.py\n::Timeline" as Timeline
+participant "backend/ffmpeg_utils.py\n::FFmpegUtils" as FFmpeg
+participant "FFprobe Binary" as FFprobeBin
+database "File System" as FileSystem
+
+== Create New Project ==
+
+Main -> User: Prompt: "Project name"
+User --> Main: project_name = "MyProject"
+
+Main -> User: Display: "Select video files for your project..."
+Main -> Main: Call pick_video_files()
+activate Main #LightBlue
+note right: Uses interactive file picker\n- Browse folders with arrow keys\n- Multi-select with Space key\n- Confirm with Enter
+
+Main -> User: Interactive File Picker:\n- Navigate folders (↑/↓/Enter)\n- Select videos (Space)\n- Confirm selection (Enter)
+User --> Main: video_paths = ["/path/video1.mp4", "/path/video2.mp4"]
+deactivate Main
+
+alt No videos selected
+    Main -> User: [yellow]No videos selected. Project creation cancelled.[/yellow]
+    Main -> Main: Return to main menu
+else Videos selected
+    Main -> Project: Create Project(project_name, video_paths)
+    activate Project
+
+    loop For each video_path in video_paths
+        Project -> Project: add_video(video_path, order=idx)
+        activate Project #LightGreen
+
+        Project -> Timeline: Create Video.create(name, video_path, order)
+        activate Timeline
+
+        ' Create Video instance with Timeline
+        Timeline -> Timeline: Create Timeline(video_path, video_id)
+
+        ' Get video duration
+        Timeline -> FFmpeg: get_media_duration(video_path)
+        activate FFmpeg
+        FFmpeg -> FFprobeBin: Execute: ffprobe -v quiet\n-show_entries format=duration\n-of csv=p=0 {video_path}
+        activate FFprobeBin
+        FFprobeBin --> FFmpeg: stdout: "120.5"
+        deactivate FFprobeBin
+        FFmpeg --> Timeline: duration = 120.5 seconds
+        deactivate FFmpeg
+
+        ' Get video info (resolution, fps, codec)
+        Timeline -> FFmpeg: get_video_info(video_path)
+        activate FFmpeg
+        FFmpeg -> FFprobeBin: Execute: ffprobe -v quiet\n-select_streams v:0\n-show_entries stream=width,height,\ncodec_name,r_frame_rate\n-of csv=p=0 {video_path}
+        activate FFprobeBin
+        FFprobeBin --> FFmpeg: "1920,1080,h264,30/1"
+        deactivate FFprobeBin
+        FFmpeg --> Timeline: video_info = {width: 1920, height: 1080,\ncodec: 'h264', fps: 30.0}
+        deactivate FFmpeg
+
+        Timeline -> Timeline: Calculate:\n- aspect_ratio = width/height = 1.778\n- orientation = 'horizontal' (AR > 1.1)
+        Timeline --> Project: Video instance with metadata
+        deactivate Timeline
+
+        Project -> Project: Add to self.videos[]\nSet as active if first video
+        deactivate Project
+    end
+
+    Project -> Project: Set metadata:\ncreated_at = datetime.now()\nmodified_at = datetime.now()\nexport_quality = "balanced"
+
+    Project --> Main: Project instance with multiple videos
+    deactivate Project
+
+    ' Display video info to user
+    Main -> User: Display:\n\n[green]✓ Project created with {N} video(s)[/green]\n\nTable showing:\n- Video names\n- Durations\n- Resolutions\n- Orientations (🖥/📱/⬜)
+
+    ' Check video compatibility for multi-video projects
+    alt Multiple videos selected (len > 1)
+        Main -> Project: check_video_compatibility()
+        activate Project
+        Project -> Project: Compare orientations,\naspect ratios between videos
+        alt Videos incompatible
+            Project --> Main: (False, warnings)
+            Main -> User: [yellow]⚠ Video Compatibility Warnings:[/yellow]\n• Incompatible orientations\n• Different aspect ratios
+        else Videos compatible
+            Project --> Main: (True, [])
+            Main -> User: [green]✓ All videos are compatible for combination[/green]
+        end
+        deactivate Project
+    end
+
+    ' Save project
+    Main -> Project: save()
+    activate Project
+    Project -> FileSystem: Create directory:\nmkdir -p storage/projects/MyProject/
+    Project -> Project: Serialize to JSON (v2 format):\nproject_data = {\n  "name": "MyProject",\n  "videos": [\n    {id, name, path, timeline, order,\n     duration, width, height, fps,\n     codec, aspect_ratio, orientation},\n    ...\n  ],\n  "active_video_id": "uuid",\n  "created_at": "2025-11-16...",\n  "version": 2\n}
+    Project -> FileSystem: Write JSON to:\nstorage/projects/MyProject/project.json
+    FileSystem --> Project: File written
+    Project --> Main: save successful (True)
+    deactivate Project
+
+    Main -> User: [green]✓ Project saved: MyProject[/green]
+
+    Main -> Main: Navigate to project_menu()
+end
+
+note over User, FileSystem
+  **Technical Details:**
+
+  **Interactive File Picker (NEW):**
+  - Uses utils/file_picker.py
+  - Two-stage process: Navigate → Multi-select
+  - Arrow keys for folder navigation
+  - Space key for video selection
+  - Returns list of absolute video paths
+
+  **Multi-Video Architecture (NEW):**
+  - Project contains list of Video instances
+  - Each Video has own Timeline and segments
+  - Videos have order attribute for sequencing
+  - active_video_id tracks which video is being edited
+
+  **Video Model (NEW):**
+  - Metadata: duration, width, height, fps, codec
+  - Calculated: aspect_ratio, orientation
+  - Orientation: 'horizontal' (AR>1.1), 'vertical' (AR<0.9), 'square'
+  - Icons: 🖥 (landscape), 📱 (portrait), ⬜ (square)
+
+  **Compatibility Checking (NEW):**
+  - Compares orientation across all videos
+  - Checks aspect ratio similarity (5% tolerance)
+  - Warns if videos can't be cleanly combined
+  - Required for combined video export
+
+  **FFprobe Queries:**
+  - Duration query: format=duration (container level)
+  - Video info query: stream=width,height,codec_name,r_frame_rate
+  - Uses -select_streams v:0 for first video stream
+  - Output format: csv=p=0 (CSV without headers)
+
+  **Project Storage (v2 Format - NEW):**
+  - Path: storage/projects/{project_name}/project.json
+  - Format: JSON with "version": 2
+  - Contains array of Video objects
+  - Backwards compatible: v1 projects auto-migrate to v2
+
+  **Default Settings:**
+  - export_quality: "balanced" (CRF 23)
+  - include_subtitles: true
+  - background_music_path: null
+end note
+
+@enduml

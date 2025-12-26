@@ -1,0 +1,8 @@
+1
+00:00:00,000 --> 00:00:04,776
+Ever wondered how Python handles a string? This video teaches you to create, modify, and use strings
+
+2
+00:00:04,776 --> 00:00:09,552
+with simple commands in just a few lines.
+

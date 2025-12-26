@@ -1,0 +1,41 @@
+# TermiVoxed Web UI - Additional Dependencies
+# Install these in addition to the main project requirements
+
+# FastAPI backend
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+websockets>=12.0
+python-multipart>=0.0.9
+
+# Async HTTP client for LLM APIs
+httpx>=0.26.0
+
+# Subscription/License system
+pydantic[email]>=2.0.0
+pyjwt>=2.8.0
+aiohttp>=3.9.0
+
+# ============================================================================
+# LangChain Integration - Multi-Provider LLM Support
+# ============================================================================
+
+# Core LangChain
+langchain>=0.3.0
+langchain-core>=0.3.0
+
+# LangChain Provider Integrations
+langchain-openai>=0.2.0          # OpenAI and Azure OpenAI
+langchain-anthropic>=0.2.0       # Anthropic/Claude
+langchain-google-genai>=2.0.0    # Google Gemini
+langchain-ollama>=0.2.0          # Ollama (local models)
+langchain-aws>=0.2.0             # AWS Bedrock
+langchain-huggingface>=0.1.0     # HuggingFace
+
+# Azure Identity (for Azure OpenAI with Entra ID)
+azure-identity>=1.15.0
+
+# Additional LangChain utilities
+langchain-community>=0.3.0       # Community integrations
+
+# Already in main requirements:
+# edge-tts, pydantic, pydantic-settings, tenacity, loguru

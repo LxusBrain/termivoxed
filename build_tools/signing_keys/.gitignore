@@ -1,0 +1,6 @@
+# NEVER commit private signing keys
+update_signing_key.pem
+.env.signing
+
+# Public key is safe to commit
+!update_public_key.b64

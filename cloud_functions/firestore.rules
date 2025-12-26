@@ -1,0 +1,169 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // HELPER FUNCTIONS
+    // ============================================================
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Check if email is verified
+    function isEmailVerified() {
+      return isAuthenticated() && request.auth.token.email_verified == true;
+    }
+
+    // Check if user is an organization admin
+    function isOrgAdmin(orgId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/org_members/$(orgId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/org_members/$(orgId)/members/$(request.auth.uid)).data.role == "ADMIN";
+    }
+
+    // Check if user is an organization member
+    function isOrgMember(orgId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/org_members/$(orgId)/members/$(request.auth.uid));
+    }
+
+    // ============================================================
+    // USER DATA
+    // ============================================================
+
+    // Users collection - users can only read/update their own data
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if isOwner(userId);
+
+      // Users can update their own profile (except stripeCustomerId)
+      allow update: if isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['stripeCustomerId', 'createdAt']);
+
+      // Users cannot delete their own document (handled by Cloud Functions)
+      allow delete: if false;
+
+      // Only Cloud Functions can create user documents
+      allow create: if false;
+    }
+
+    // ============================================================
+    // SUBSCRIPTIONS
+    // ============================================================
+
+    // Subscriptions - read-only for users, write only via Cloud Functions
+    match /subscriptions/{userId} {
+      // Users can read their own subscription
+      allow read: if isOwner(userId);
+
+      // Only Cloud Functions can write (Stripe webhooks, etc.)
+      allow write: if false;
+    }
+
+    // ============================================================
+    // DEVICES
+    // ============================================================
+
+    // Devices - users can read their own devices
+    match /devices/{deviceId} {
+      // Users can read their own devices
+      allow read: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+
+      // Only Cloud Functions can write (device registration, deactivation)
+      allow write: if false;
+    }
+
+    // ============================================================
+    // SESSIONS
+    // ============================================================
+
+    // Sessions - users can read their own sessions
+    match /sessions/{sessionId} {
+      allow read: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+
+      // Only Cloud Functions can write
+      allow write: if false;
+    }
+
+    // ============================================================
+    // LICENSES
+    // ============================================================
+
+    // Licenses - read-only for users
+    match /licenses/{licenseId} {
+      allow read: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+
+      allow write: if false;
+    }
+
+    // ============================================================
+    // ORGANIZATIONS (Enterprise)
+    // ============================================================
+
+    // Organizations - admins can read/write, members can read
+    match /organizations/{orgId} {
+      // Members can read organization info
+      allow read: if isOrgMember(orgId);
+
+      // Only admins can update organization settings
+      allow update: if isOrgAdmin(orgId);
+
+      // Only Cloud Functions can create/delete organizations
+      allow create, delete: if false;
+    }
+
+    // Organization members subcollection
+    match /org_members/{orgId}/members/{userId} {
+      // Admins can read all members
+      allow read: if isOrgAdmin(orgId);
+
+      // Members can read their own membership
+      allow read: if isOwner(userId);
+
+      // Only admins can manage members
+      allow write: if isOrgAdmin(orgId);
+    }
+
+    // ============================================================
+    // USAGE LOGS
+    // ============================================================
+
+    // Usage logs - users can read their own logs
+    match /usage_logs/{userId}/logs/{logId} {
+      // Users can read their own usage logs
+      allow read: if isOwner(userId);
+
+      // Only Cloud Functions can write logs
+      allow write: if false;
+    }
+
+    // ============================================================
+    // FRAUD ALERTS
+    // ============================================================
+
+    // Fraud alerts - only Cloud Functions and admins can access
+    match /fraud_alerts/{alertId} {
+      // No user access - only via Cloud Functions
+      allow read, write: if false;
+    }
+
+    // ============================================================
+    // DEFAULT DENY
+    // ============================================================
+
+    // Deny access to any other documents
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

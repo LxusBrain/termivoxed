@@ -1,0 +1,70 @@
+2025-12-21 20:04:36 | INFO     | web_ui.api.routes.export:run_export - [Export 845fe802] fonts: Checking subtitle fonts... (5%)
+2025-12-21 20:04:36 | INFO     | web_ui.api.routes.export:run_export - [Export 845fe802] tts: Using cached audio for: String Explanation (10%)
+2025-12-21 20:04:36 | INFO     | web_ui.api.routes.export:run_export - [Export 845fe802] tts: Using cached audio for: ThanksSegment (16%)
+2025-12-21 20:04:36 | INFO     | web_ui.api.routes.export:run_export - [Export 845fe802] tts: Using cached audio for: Segment Middle (22%)
+2025-12-21 20:04:36 | INFO     | web_ui.api.routes.export:run_export - [Export 845fe802] tts: Using cached audio for: Final (28%)
+2025-12-21 20:04:36 | INFO     | web_ui.api.routes.export:run_export - [Export 845fe802] tts: Using cached audio for: Segment 413 (34%)
+2025-12-21 20:04:36 | INFO     | web_ui.api.routes.export:run_export - [Export 845fe802] segments: Processing video segments... (40%)
+2025-12-21 20:04:36 | INFO     | web_ui.api.routes.export:run_export - [Export 845fe802] segments: Combining multiple videos... (45%)
+2025-12-21 20:04:47 | DEBUG    | web_ui.api.services.llm_service:check_health - [LLM Service] Health check: {'ollama_available': True, 'ollama_models': ['gemma3:270m', 'ministral-3:3b', 'qwen3:4b'], 'openai_configured': False, 'anthropic_configured': False, 'google_configured': False, 'azure_openai_configured': False, 'aws_bedrock_configured': False, 'huggingface_configured': False, 'langchain_available': True}
+2025-12-21 20:04:50 | INFO     | backend.tts_service:check_tts_connectivity - 🔍 Testing direct connection to TTS service...
+2025-12-21 20:04:50 | INFO     | backend.tts_service:check_tts_connectivity - ✅ Direct connection to TTS service: SUCCESS
+2025-12-21 20:04:50 | INFO     | backend.tts_service:check_tts_connectivity - 💡 Recommendation: Use direct connection (no proxy needed)
+2025-12-21 20:05:17 | DEBUG    | web_ui.api.services.llm_service:check_health - [LLM Service] Health check: {'ollama_available': True, 'ollama_models': ['gemma3:270m', 'ministral-3:3b', 'qwen3:4b'], 'openai_configured': False, 'anthropic_configured': False, 'google_configured': False, 'azure_openai_configured': False, 'aws_bedrock_configured': False, 'huggingface_configured': False, 'langchain_available': True}
+2025-12-21 20:05:20 | INFO     | backend.tts_service:check_tts_connectivity - 🔍 Testing direct connection to TTS service...
+2025-12-21 20:05:22 | INFO     | backend.tts_service:check_tts_connectivity - ✅ Direct connection to TTS service: SUCCESS
+2025-12-21 20:05:22 | INFO     | backend.tts_service:check_tts_connectivity - 💡 Recommendation: Use direct connection (no proxy needed)
+2025-12-21 20:05:24 | INFO     | web_ui.api.routes.export:run_export - [Export 845fe802] ffmpeg: bgm: 91% (90%)
+2025-12-21 20:05:24 | INFO     | web_ui.api.routes.export:run_export - [Export 845fe802] ffmpeg: bgm: 96% (93%)
+2025-12-21 20:05:24 | INFO     | web_ui.api.routes.export:run_export - [Export 845fe802] ffmpeg: bgm: 97% (93%)
+2025-12-21 20:05:24 | INFO     | web_ui.api.routes.export:run_export - [Export 845fe802] completed: Export completed! File size: 28.4 MB (100%)
+2025-12-21 20:05:24 | INFO     | web_ui.api.routes.export:export_progress_websocket - [Export 845fe802] WebSocket disconnected by client
+2025-12-21 20:05:24 | INFO     | web_ui.api.routes.export:export_progress_websocket - [Export 845fe802] WebSocket closed
+2025-12-21 20:05:24 | INFO     | backend.tts_service:check_tts_connectivity - 🔍 Testing direct connection to TTS service...
+2025-12-21 20:05:24 | DEBUG    | backend.ffmpeg_utils:get_video_info - Video info: 1920x1080, h264, yuv420p, 59.94fps
+2025-12-21 20:05:24 | DEBUG    | models.timeline:_get_video_info - Video info retrieved: {'width': 1920, 'height': 1080, 'pix_fmt': 'yuv420p', 'codec': 'h264', 'fps': 59.94}
+2025-12-21 20:05:24 | DEBUG    | models.video:__post_init__ - Video.__post_init__ - Set duration: 11.011
+2025-12-21 20:05:24 | DEBUG    | models.video:__post_init__ - Video.__post_init__ - Set dimensions: 1920x1080
+2025-12-21 20:05:24 | DEBUG    | models.video:__post_init__ - Video.__post_init__ - Calculated orientation: horizontal (AR: 1.778)
+2025-12-21 20:05:24 | DEBUG    | backend.ffmpeg_utils:get_video_info - Video info: 3840x2160, h264, yuv420p, 29.97fps
+2025-12-21 20:05:24 | DEBUG    | models.timeline:_get_video_info - Video info retrieved: {'width': 3840, 'height': 2160, 'pix_fmt': 'yuv420p', 'codec': 'h264', 'fps': 29.97}
+2025-12-21 20:05:24 | DEBUG    | models.video:__post_init__ - Video.__post_init__ - Set duration: 10.077007
+2025-12-21 20:05:24 | DEBUG    | models.video:__post_init__ - Video.__post_init__ - Set dimensions: 3840x2160
+2025-12-21 20:05:24 | DEBUG    | models.video:__post_init__ - Video.__post_init__ - Calculated orientation: horizontal (AR: 1.778)
+2025-12-21 20:05:24 | DEBUG    | backend.ffmpeg_utils:get_video_info - Video info: 1920x1080, h264, yuv420p, 25.00fps
+2025-12-21 20:05:24 | DEBUG    | models.timeline:_get_video_info - Video info retrieved: {'width': 1920, 'height': 1080, 'pix_fmt': 'yuv420p', 'codec': 'h264', 'fps': 25.0}
+2025-12-21 20:05:24 | DEBUG    | models.video:__post_init__ - Video.__post_init__ - Set duration: 73.92
+2025-12-21 20:05:24 | DEBUG    | models.video:__post_init__ - Video.__post_init__ - Set dimensions: 1920x1080
+2025-12-21 20:05:24 | DEBUG    | models.video:__post_init__ - Video.__post_init__ - Calculated orientation: horizontal (AR: 1.778)
+2025-12-21 20:05:25 | DEBUG    | backend.ffmpeg_utils:get_video_info - Video info: 1920x1080, h264, yuv420p, 29.97fps
+2025-12-21 20:05:25 | DEBUG    | models.timeline:_get_video_info - Video info retrieved: {'width': 1920, 'height': 1080, 'pix_fmt': 'yuv420p', 'codec': 'h264', 'fps': 29.97}
+2025-12-21 20:05:25 | DEBUG    | models.video:__post_init__ - Video.__post_init__ - Set duration: 73.406667
+2025-12-21 20:05:25 | DEBUG    | models.video:__post_init__ - Video.__post_init__ - Set dimensions: 1920x1080
+2025-12-21 20:05:25 | DEBUG    | models.video:__post_init__ - Video.__post_init__ - Calculated orientation: horizontal (AR: 1.778)
+2025-12-21 20:05:25 | INFO     | models.project:load - Project loaded: Check3 (4 videos)
+2025-12-21 20:05:25 | INFO     | web_ui.api.routes.export:run_export - Export worker finished with return code: 0
+2025-12-21 20:05:25 | INFO     | web_ui.api.routes.export:run_export - [Export 845fe802] COMPLETED - File: /Users/santhu/Downloads/s342.mp4 (28.4 MB)
+2025-12-21 20:05:25 | INFO     | backend.tts_service:check_tts_connectivity - ✅ Direct connection to TTS service: SUCCESS
+2025-12-21 20:05:25 | INFO     | backend.tts_service:check_tts_connectivity - 💡 Recommendation: Use direct connection (no proxy needed)
+2025-12-21 20:05:47 | DEBUG    | web_ui.api.services.llm_service:check_health - [LLM Service] Health check: {'ollama_available': True, 'ollama_models': ['gemma3:270m', 'ministral-3:3b', 'qwen3:4b'], 'openai_configured': False, 'anthropic_configured': False, 'google_configured': False, 'azure_openai_configured': False, 'aws_bedrock_configured': False, 'huggingface_configured': False, 'langchain_available': True}
+2025-12-21 20:05:52 | INFO     | backend.tts_service:check_tts_connectivity - 🔍 Testing direct connection to TTS service...
+2025-12-21 20:05:53 | INFO     | backend.tts_service:check_tts_connectivity - ✅ Direct connection to TTS service: SUCCESS
+2025-12-21 20:05:53 | INFO     | backend.tts_service:check_tts_connectivity - 💡 Recommendation: Use direct connection (no proxy needed)
+2025-12-21 20:06:17 | DEBUG    | web_ui.api.services.llm_service:check_health - [LLM Service] Health check: {'ollama_available': True, 'ollama_models': ['gemma3:270m', 'ministral-3:3b', 'qwen3:4b'], 'openai_configured': False, 'anthropic_configured': False, 'google_configured': False, 'azure_openai_configured': False, 'aws_bedrock_configured': False, 'huggingface_configured': False, 'langchain_available': True}
+2025-12-21 20:06:23 | INFO     | backend.tts_service:check_tts_connectivity - 🔍 Testing direct connection to TTS service...
+2025-12-21 20:06:24 | INFO     | backend.tts_service:check_tts_connectivity - ✅ Direct connection to TTS service: SUCCESS
+2025-12-21 20:06:24 | INFO     | backend.tts_service:check_tts_connectivity - 💡 Recommendation: Use direct connection (no proxy needed)
+2025-12-21 20:06:47 | DEBUG    | web_ui.api.services.llm_service:check_health - [LLM Service] Health check: {'ollama_available': True, 'ollama_models': ['gemma3:270m', 'ministral-3:3b', 'qwen3:4b'], 'openai_configured': False, 'anthropic_configured': False, 'google_configured': False, 'azure_openai_configured': False, 'aws_bedrock_configured': False, 'huggingface_configured': False, 'langchain_available': True}
+2025-12-21 20:06:54 | INFO     | backend.tts_service:check_tts_connectivity - 🔍 Testing direct connection to TTS service...
+2025-12-21 20:06:54 | INFO     | backend.tts_service:check_tts_connectivity - ✅ Direct connection to TTS service: SUCCESS
+2025-12-21 20:06:54 | INFO     | backend.tts_service:check_tts_connectivity - 💡 Recommendation: Use direct connection (no proxy needed)
+2025-12-21 20:07:17 | DEBUG    | web_ui.api.services.llm_service:check_health - [LLM Service] Health check: {'ollama_available': True, 'ollama_models': ['gemma3:270m', 'ministral-3:3b', 'qwen3:4b'], 'openai_configured': False, 'anthropic_configured': False, 'google_configured': False, 'azure_openai_configured': False, 'aws_bedrock_configured': False, 'huggingface_configured': False, 'langchain_available': True}
+2025-12-21 20:07:25 | INFO     | backend.tts_service:check_tts_connectivity - 🔍 Testing direct connection to TTS service...
+2025-12-21 20:07:25 | INFO     | backend.tts_service:check_tts_connectivity - ✅ Direct connection to TTS service: SUCCESS
+2025-12-21 20:07:25 | INFO     | backend.tts_service:check_tts_connectivity - 💡 Recommendation: Use direct connection (no proxy needed)
+2025-12-21 20:07:47 | DEBUG    | web_ui.api.services.llm_service:check_health - [LLM Service] Health check: {'ollama_available': True, 'ollama_models': ['gemma3:270m', 'ministral-3:3b', 'qwen3:4b'], 'openai_configured': False, 'anthropic_configured': False, 'google_configured': False, 'azure_openai_configured': False, 'aws_bedrock_configured': False, 'huggingface_configured': False, 'langchain_available': True}
+2025-12-21 20:07:55 | INFO     | backend.tts_service:check_tts_connectivity - 🔍 Testing direct connection to TTS service...
+2025-12-21 20:07:56 | INFO     | backend.tts_service:check_tts_connectivity - ✅ Direct connection to TTS service: SUCCESS
+2025-12-21 20:07:56 | INFO     | backend.tts_service:check_tts_connectivity - 💡 Recommendation: Use direct connection (no proxy needed)
+2025-12-21 20:08:17 | DEBUG    | web_ui.api.services.llm_service:check_health - [LLM Service] Health check: {'ollama_available': True, 'ollama_models': ['gemma3:270m', 'ministral-3:3b', 'qwen3:4b'], 'openai_configured': False, 'anthropic_configured': False, 'google_configured': False, 'azure_openai_configured': False, 'aws_bedrock_configured': False, 'huggingface_configured': False, 'langchain_available': True}
+2025-12-21 20:08:23 | INFO     | web_ui.api.routes.timeline_ws:disconnect - WebSocket disconnected for project: Check3

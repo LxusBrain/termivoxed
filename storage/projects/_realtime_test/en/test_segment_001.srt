@@ -1,0 +1,8 @@
+1
+00:00:00,000 --> 00:00:04,968
+Hello! This is a real-time test of the TermiVoxed text to speech system. We are testing the multi-provider
+
+2
+00:00:04,968 --> 00:00:09,936
+architecture with Microsoft Edge TTS.
+

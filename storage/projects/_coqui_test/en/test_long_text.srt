@@ -1,0 +1,16 @@
+1
+00:00:00,000 --> 00:00:05,939
+Welcome to TermiVoxed, the privacy-focused video dubbing tool. This is a comprehensive test of the Coqui
+
+2
+00:00:05,939 --> 00:00:11,879
+text to speech system. All audio processing happens locally on your device, ensuring complete privacy.
+
+3
+00:00:11,879 --> 00:00:17,819
+No data is ever sent to external servers. This makes it perfect for sensitive content and users who
+
+4
+00:00:17,819 --> 00:00:23,758
+prioritize data protection.
+

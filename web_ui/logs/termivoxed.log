@@ -1,0 +1,66 @@
+2025-12-17 18:35:11 | INFO     | web_ui.api.services.llm_service:<module> - [LLM Service] LangChain providers loaded successfully
+2025-12-17 18:35:11 | INFO     | web_ui.api.services.llm_service:__init__ - [LLM Service] Initialized (LangChain available: True)
+2025-12-17 18:35:11 | INFO     | api.services.llm_service:<module> - [LLM Service] LangChain providers loaded successfully
+2025-12-17 18:35:11 | INFO     | api.services.llm_service:__init__ - [LLM Service] Initialized (LangChain available: True)
+2025-12-17 18:35:11 | INFO     | api.services.langchain_providers:create - [Factory] Creating ollama provider with model: qwen3:4b
+2025-12-17 18:35:12 | INFO     | api.services.langchain_providers:initialize - [Ollama] Initialized with model: qwen3:4b at http://localhost:11434
+2025-12-17 18:35:12 | INFO     | api.services.langchain_providers:generate - [Ollama] Generating with model qwen3:4b, 54 char prompt
+2025-12-17 18:35:17 | INFO     | api.services.langchain_providers:generate - [Ollama] Generation complete: 0 chars
+2025-12-17 18:35:18 | DEBUG    | api.services.llm_service:check_health - [LLM Service] Health check: {'ollama_available': True, 'ollama_models': ['qwen3-vl:8b', 'qwen3:4b'], 'openai_configured': False, 'anthropic_configured': False, 'google_configured': False, 'azure_openai_configured': False, 'aws_bedrock_configured': False, 'huggingface_configured': False, 'langchain_available': True}
+2025-12-17 18:35:18 | INFO     | web_ui.api.services.langchain_providers:create - [Factory] Creating ollama provider with model: qwen3:4b
+2025-12-17 18:35:18 | INFO     | api.services.llm_service:_get_langchain_provider - [LLM Service] Created LangChain ollama provider for model: qwen3:4b
+2025-12-17 18:37:41 | INFO     | web_ui.api.services.llm_service:<module> - [LLM Service] LangChain providers loaded successfully
+2025-12-17 18:37:41 | INFO     | web_ui.api.services.llm_service:__init__ - [LLM Service] Initialized (LangChain available: True)
+2025-12-17 18:37:41 | INFO     | api.services.llm_service:<module> - [LLM Service] LangChain providers loaded successfully
+2025-12-17 18:37:41 | INFO     | api.services.llm_service:__init__ - [LLM Service] Initialized (LangChain available: True)
+2025-12-17 18:37:41 | INFO     | api.services.langchain_providers:create - [Factory] Creating ollama provider with model: qwen3:4b
+2025-12-17 18:37:41 | INFO     | api.services.langchain_providers:initialize - [Ollama] Initialized with model: qwen3:4b at http://localhost:11434 (thinking model: True)
+2025-12-17 18:37:41 | INFO     | api.services.langchain_providers:generate - [Ollama] Generating with model qwen3:4b, 54 char prompt
+2025-12-17 18:37:44 | INFO     | api.services.langchain_providers:generate - [Ollama] Generation complete (httpx): 0 chars
+2025-12-17 18:37:45 | DEBUG    | api.services.llm_service:check_health - [LLM Service] Health check: {'ollama_available': True, 'ollama_models': ['qwen3-vl:8b', 'qwen3:4b'], 'openai_configured': False, 'anthropic_configured': False, 'google_configured': False, 'azure_openai_configured': False, 'aws_bedrock_configured': False, 'huggingface_configured': False, 'langchain_available': True}
+2025-12-17 18:37:45 | INFO     | web_ui.api.services.langchain_providers:create - [Factory] Creating ollama provider with model: qwen3:4b
+2025-12-17 18:37:45 | INFO     | api.services.llm_service:_get_langchain_provider - [LLM Service] Created LangChain ollama provider for model: qwen3:4b
+2025-12-17 18:38:39 | INFO     | web_ui.api.services.llm_service:<module> - [LLM Service] LangChain providers loaded successfully
+2025-12-17 18:38:39 | INFO     | web_ui.api.services.llm_service:__init__ - [LLM Service] Initialized (LangChain available: True)
+2025-12-17 18:38:39 | INFO     | api.services.llm_service:<module> - [LLM Service] LangChain providers loaded successfully
+2025-12-17 18:38:39 | INFO     | api.services.llm_service:__init__ - [LLM Service] Initialized (LangChain available: True)
+2025-12-17 18:38:39 | INFO     | api.services.langchain_providers:create - [Factory] Creating ollama provider with model: qwen3:4b
+2025-12-17 18:38:40 | INFO     | api.services.langchain_providers:initialize - [Ollama] Initialized with model: qwen3:4b at http://localhost:11434 (thinking model: True)
+2025-12-17 18:38:40 | INFO     | api.services.langchain_providers:generate - [Ollama] Generating with model qwen3:4b, 54 char prompt
+2025-12-17 18:38:51 | INFO     | api.services.langchain_providers:generate - [Ollama] Generation complete (httpx): 143 chars
+2025-12-17 18:38:56 | DEBUG    | api.services.llm_service:check_health - [LLM Service] Health check: {'ollama_available': True, 'ollama_models': ['qwen3-vl:8b', 'qwen3:4b'], 'openai_configured': False, 'anthropic_configured': False, 'google_configured': False, 'azure_openai_configured': False, 'aws_bedrock_configured': False, 'huggingface_configured': False, 'langchain_available': True}
+2025-12-17 18:38:56 | INFO     | web_ui.api.services.langchain_providers:create - [Factory] Creating ollama provider with model: qwen3:4b
+2025-12-17 18:38:56 | INFO     | api.services.llm_service:_get_langchain_provider - [LLM Service] Created LangChain ollama provider for model: qwen3:4b
+2025-12-17 18:39:25 | INFO     | web_ui.api.services.llm_service:<module> - [LLM Service] LangChain providers loaded successfully
+2025-12-17 18:39:25 | INFO     | web_ui.api.services.llm_service:__init__ - [LLM Service] Initialized (LangChain available: True)
+2025-12-17 18:39:25 | INFO     | api.services.llm_service:<module> - [LLM Service] LangChain providers loaded successfully
+2025-12-17 18:39:25 | INFO     | api.services.llm_service:__init__ - [LLM Service] Initialized (LangChain available: True)
+2025-12-17 18:39:25 | INFO     | api.services.langchain_providers:create - [Factory] Creating ollama provider with model: qwen3:4b
+2025-12-17 18:39:25 | INFO     | api.services.langchain_providers:initialize - [Ollama] Initialized with model: qwen3:4b at http://localhost:11434 (thinking model: True)
+2025-12-17 18:39:25 | INFO     | api.services.langchain_providers:generate - [Ollama] Generating with model qwen3:4b, 54 char prompt
+2025-12-17 18:39:38 | INFO     | api.services.langchain_providers:generate - [Ollama] Generation complete (httpx): 85 chars
+2025-12-17 18:39:43 | INFO     | api.services.langchain_providers:create - [Factory] Creating azure_openai provider with model: gpt-35-turbo
+2025-12-17 18:39:43 | INFO     | api.services.langchain_providers:initialize - [Azure OpenAI] Initialized deployment: gpt-35-turbo at https://system-testing.openai.azure.com
+2025-12-17 18:39:45 | INFO     | api.services.langchain_providers:generate - [Azure OpenAI] Generating with deployment gpt-35-turbo
+2025-12-17 18:39:47 | INFO     | api.services.langchain_providers:generate - [Azure OpenAI] Generation complete: 218 chars
+2025-12-17 18:39:48 | DEBUG    | api.services.llm_service:check_health - [LLM Service] Health check: {'ollama_available': True, 'ollama_models': ['qwen3-vl:8b', 'qwen3:4b'], 'openai_configured': False, 'anthropic_configured': False, 'google_configured': False, 'azure_openai_configured': True, 'aws_bedrock_configured': False, 'huggingface_configured': False, 'langchain_available': True}
+2025-12-17 18:39:48 | INFO     | web_ui.api.services.langchain_providers:create - [Factory] Creating ollama provider with model: qwen3:4b
+2025-12-17 18:39:48 | INFO     | api.services.llm_service:_get_langchain_provider - [LLM Service] Created LangChain ollama provider for model: qwen3:4b
+
+The video was playing and was reaching the final video where after it pauses. What I did when it was about to reach, I extended the trimmed video part, and the video continued to play until the place where I
+  extended in the timeline, but then what happened, it started glitching, Pause - Play - Pause - Play and finally it got stuck. 2025-12-20 06:00:11 | ERROR    | models.project:load - Project file not found: storage/projects/Check3/project.json
+2025-12-21 12:32:49 | INFO     | web_ui.api.services.llm_service:<module> - [LLM Service] LangChain providers loaded successfully
+2025-12-21 12:32:49 | INFO     | web_ui.api.services.llm_service:__init__ - [LLM Service] Initialized (LangChain available: True)
+2025-12-21 12:32:49 | DEBUG    | backend.tts_providers.registry:_load_settings - Loaded TTS settings: default=coqui
+2025-12-21 12:32:49 | DEBUG    | backend.tts_providers.registry:register - Registered TTS provider: edge_tts
+2025-12-21 12:32:49 | DEBUG    | backend.tts_providers.registry:register - Registered TTS provider: coqui
+2025-12-21 12:32:49 | INFO     | backend.tts_service:__init__ - TTS Proxy DISABLED: Direct connection to TTS service
+2025-12-21 12:32:49 | INFO     | web_ui.api.routes.timeline_ws:connect - WebSocket connected for project: Check3
+2025-12-21 12:32:49 | ERROR    | models.project:load - Project file not found: storage/projects/Check3/project.json
+2025-12-21 12:33:02 | INFO     | backend.tts_providers.coqui_provider:initialize - Coqui TTS provider initialized (model will load on first use)
+2025-12-21 12:33:14 | INFO     | backend.tts_providers.coqui_provider:_load_model - Loading Coqui TTS model: tts_models/multilingual/multi-dataset/xtts_v2
+2025-12-21 12:33:14 | WARNING  | backend.tts_providers.coqui_provider:_load_model - GPU requested but CUDA not available, using CPU
+2025-12-21 12:33:31 | INFO     | backend.tts_providers.coqui_provider:_load_model - Coqui TTS model loaded on cpu
+2025-12-21 12:33:32 | INFO     | backend.tts_service:generate_audio_with_provider - Generated audio with coqui: storage/projects/_previews/en/preview_coqui_daisy_studious_97179.mp3
+2025-12-21 12:33:39 | INFO     | backend.tts_service:__init__ - TTS Proxy DISABLED: Direct connection to TTS service
+2025-12-21 12:33:43 | INFO     | backend.tts_service:generate_audio_with_provider - Generated audio with coqui: storage/projects/_test/en/preview_coqui_gracie_wise_2242.mp3

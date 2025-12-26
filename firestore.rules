@@ -1,0 +1,348 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =======================================================================
+    // HELPER FUNCTIONS
+    // =======================================================================
+
+    // Check if the request is from an authenticated user
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if the user owns this document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Check if user has admin role via Firebase custom claims (more secure)
+    // Admin claim is set via Firebase Admin SDK: auth.setCustomUserClaims(uid, {admin: true})
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.admin == true;
+    }
+
+    // Fallback admin check via Firestore (for backward compatibility)
+    // SECURITY: This should only be used during migration to custom claims
+    function isAdminLegacy() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Combined admin check - custom claims OR legacy role
+    function hasAdminAccess() {
+      return isAdmin() || isAdminLegacy();
+    }
+
+    // Check if user has active subscription
+    function hasActiveSubscription() {
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return user.data.subscription != null &&
+        user.data.subscription.status in ['active', 'trial', 'ACTIVE', 'TRIAL'];
+    }
+
+    // Check subscription tier (case-insensitive)
+    function hasTier(tier) {
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      let userTier = user.data.subscription.tier;
+      return user.data.subscription != null &&
+        (userTier == tier || userTier == tier.lower());
+    }
+
+    // Check if subscription includes tier or higher
+    // Tier hierarchy: free_trial < individual/basic < pro < lifetime < enterprise
+    function hasTierOrHigher(tier) {
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      let userTier = user.data.subscription.tier;
+
+      // Normalize tier names (handle both cases)
+      let normalizedUserTier = userTier.lower();
+      let normalizedTier = tier.lower();
+
+      // Enterprise tier has access to everything
+      if (normalizedUserTier == 'enterprise') {
+        return true;
+      }
+
+      // Lifetime has access to everything except enterprise-only features
+      if (normalizedUserTier == 'lifetime') {
+        return normalizedTier != 'enterprise';
+      }
+
+      // Pro tier
+      if (normalizedUserTier == 'pro') {
+        return normalizedTier in ['free_trial', 'basic', 'individual', 'pro'];
+      }
+
+      // Basic/Individual tier
+      if (normalizedUserTier in ['basic', 'individual']) {
+        return normalizedTier in ['free_trial', 'basic', 'individual'];
+      }
+
+      // Free trial - only has free_trial access
+      if (normalizedUserTier == 'free_trial') {
+        return normalizedTier == 'free_trial';
+      }
+
+      return false;
+    }
+
+    // =======================================================================
+    // PROTECTED FIELDS - Fields that users cannot set or modify
+    // =======================================================================
+
+    // Fields that should NEVER be set by users (only cloud functions/webhooks)
+    function hasProtectedFields(data) {
+      return data.keys().hasAny(['subscription', 'role', 'stripeCustomerId', 'isAdmin']);
+    }
+
+    // =======================================================================
+    // USER DOCUMENTS
+    // =======================================================================
+
+    match /users/{userId} {
+      // Users can read their own document
+      allow read: if isOwner(userId);
+
+      // Users can create their own document (during signup)
+      // SECURITY: Prevent users from setting protected fields on create
+      allow create: if isOwner(userId) &&
+        !hasProtectedFields(request.resource.data) &&
+        // Ensure createdAt is not set by user (will be set by cloud function)
+        !request.resource.data.keys().hasAny(['createdAt']);
+
+      // Users can update limited fields
+      allow update: if isOwner(userId) &&
+        // Prevent users from modifying protected fields
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['subscription', 'role', 'createdAt', 'stripeCustomerId', 'isAdmin']);
+
+      // Only admins can delete user documents
+      allow delete: if hasAdminAccess();
+
+      // Nested collections under user
+      match /devices/{deviceId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /usage/{period} {
+        allow read: if isOwner(userId);
+        // Usage is only written by cloud functions
+        allow write: if false;
+      }
+
+      match /payments/{paymentId} {
+        allow read: if isOwner(userId);
+        // Payments are only written by webhooks
+        allow write: if false;
+      }
+
+      // Usage logs nested under user
+      match /logs/{logId} {
+        allow read: if isOwner(userId);
+        // Logs are only written by cloud functions
+        allow write: if false;
+      }
+    }
+
+    // =======================================================================
+    // SUBSCRIPTION & PAYMENT DATA
+    // =======================================================================
+
+    match /subscriptions/{subscriptionId} {
+      // Users can read their own subscription (subscriptionId == userId in this app)
+      allow read: if isAuthenticated() &&
+        (subscriptionId == request.auth.uid ||
+         (resource.data.userId != null && resource.data.userId == request.auth.uid));
+
+      // Only cloud functions/admin can write subscriptions
+      // SECURITY: Never allow client-side subscription modifications
+      allow write: if false;
+    }
+
+    match /payments/{paymentId} {
+      // Users can read their own payments
+      allow read: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+
+      // Only webhooks/admin can write - enforced by denying all client writes
+      allow write: if false;
+    }
+
+    match /invoices/{invoiceId} {
+      allow read: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+      // Only cloud functions can write invoices
+      allow write: if false;
+    }
+
+    // =======================================================================
+    // LICENSE & DEVICE MANAGEMENT
+    // =======================================================================
+
+    match /licenses/{licenseId} {
+      allow read: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+
+      // Only cloud functions can write licenses
+      allow write: if false;
+    }
+
+    // Top-level devices collection (used by cloud functions)
+    // SECURITY: Users should only access their own devices
+    match /devices/{deviceId} {
+      // Users can read their own devices
+      allow read: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+
+      // Only cloud functions can write to devices collection
+      // Device registration is handled by verifyLicense cloud function
+      allow write: if false;
+    }
+
+    // Device registrations (legacy - may be deprecated)
+    match /deviceRegistrations/{registrationId} {
+      allow read: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+
+      // Allow users to create device registrations with validation
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        // Ensure required fields are present
+        request.resource.data.keys().hasAll(['userId', 'fingerprint']) &&
+        // Prevent setting protected fields
+        !request.resource.data.keys().hasAny(['isAdmin', 'verified']);
+
+      // Allow users to update their device (e.g., last seen)
+      allow update: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid &&
+        // Cannot change userId
+        request.resource.data.userId == resource.data.userId;
+
+      // Allow users to delete their own devices
+      allow delete: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+    }
+
+    // Sessions collection (for token revocation)
+    match /sessions/{sessionId} {
+      // Users can read their own sessions
+      allow read: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+
+      // Only cloud functions manage sessions
+      allow write: if false;
+    }
+
+    // =======================================================================
+    // RATE LIMITING (Cloud Functions Only)
+    // =======================================================================
+
+    // Note: Cloud functions use 'rate_limits' (snake_case)
+    match /rate_limits/{limitId} {
+      // Only cloud functions can read/write rate limits
+      allow read, write: if false;
+    }
+
+    // Legacy collection name (camelCase) - keep for compatibility
+    match /rateLimits/{limitId} {
+      allow read, write: if false;
+    }
+
+    // =======================================================================
+    // USAGE TRACKING
+    // =======================================================================
+
+    match /usageStats/{statId} {
+      allow read: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Usage logs collection (top-level, used by cloud functions)
+    match /usage_logs/{userId} {
+      // Users can only read their own usage logs
+      allow read: if isOwner(userId);
+      allow write: if false;
+
+      match /logs/{logId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+    }
+
+    // =======================================================================
+    // STRIPE & PAYMENT PROCESSING (Cloud Functions Only)
+    // =======================================================================
+
+    // Stripe webhook event tracking for idempotency
+    match /stripe_events/{eventId} {
+      // Only cloud functions can access stripe events
+      // SECURITY: Prevents replay attacks and event manipulation
+      allow read, write: if false;
+    }
+
+    // =======================================================================
+    // SECURITY & AUDIT (Cloud Functions Only)
+    // =======================================================================
+
+    // Security event logs
+    match /security_logs/{logId} {
+      // Only admins can read security logs
+      allow read: if hasAdminAccess();
+      // Only cloud functions can write
+      allow write: if false;
+    }
+
+    // Fraud detection alerts
+    match /fraud_alerts/{alertId} {
+      // Only admins can read fraud alerts
+      allow read: if hasAdminAccess();
+      // Only cloud functions can write
+      allow write: if false;
+    }
+
+    // =======================================================================
+    // ADMIN DATA
+    // =======================================================================
+
+    match /adminConfig/{configId} {
+      allow read: if hasAdminAccess();
+      allow write: if hasAdminAccess();
+    }
+
+    match /systemLogs/{logId} {
+      allow read: if hasAdminAccess();
+      allow write: if false;
+    }
+
+    // =======================================================================
+    // PUBLIC DATA (pricing, features, etc.)
+    // =======================================================================
+
+    match /pricing/{priceId} {
+      allow read: if true;
+      allow write: if hasAdminAccess();
+    }
+
+    match /features/{featureId} {
+      allow read: if true;
+      allow write: if hasAdminAccess();
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow write: if hasAdminAccess();
+    }
+
+    // =======================================================================
+    // DEFAULT: DENY ALL
+    // SECURITY: Any collection not explicitly defined above is denied
+    // =======================================================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

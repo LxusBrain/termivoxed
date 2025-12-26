@@ -1,0 +1,135 @@
+# TermiVoxed - Dependencies
+# Author: Santhosh T
+# Version constraints added for installation stability
+
+# TUI Framework - Interactive console interface
+rich>=13.0.0
+
+# Async HTTP Framework
+aiohttp>=3.9.0
+
+# Text-to-Speech - Cloud Provider (default)
+edge-tts>=6.1.0
+
+# Audio playback for voice preview
+pygame>=2.5.0
+
+# Data Validation and Configuration (pydantic v2 required)
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
+
+# Network Retry Logic
+tenacity>=8.0.0
+
+# Utilities
+loguru>=0.7.0
+requests>=2.31.0
+inquirer>=3.1.0
+
+# ============================================================================
+# WEB UI & AUTHENTICATION
+# ============================================================================
+
+# FastAPI Web Framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# Firebase Admin SDK (authentication & Firestore)
+firebase-admin>=6.4.0
+
+# Secure Encryption (Fernet for license storage)
+cryptography>=42.0.0
+
+# HTTP Client for async requests
+httpx>=0.26.0
+
+# JWT Token handling
+PyJWT>=2.8.0
+
+# Rate limiting
+slowapi>=0.1.9
+
+# Async file operations
+aiofiles>=23.2.0
+
+# YAML configuration parsing
+PyYAML>=6.0.0
+
+# Audio file metadata (duration, bitrate extraction)
+mutagen>=1.47.0
+
+# ============================================================================
+# AI/LLM INTEGRATION
+# ============================================================================
+
+# Anthropic Claude API
+anthropic>=0.25.0
+
+# ============================================================================
+# EMAIL & NOTIFICATIONS
+# ============================================================================
+
+# SendGrid email service (for transactional emails)
+sendgrid>=6.11.0
+
+# ============================================================================
+# PDF GENERATION
+# ============================================================================
+
+# ReportLab for invoice/receipt PDF generation
+reportlab>=4.1.0
+
+# ============================================================================
+# PAYMENT PROCESSING
+# ============================================================================
+
+# Razorpay SDK (India payments)
+razorpay>=1.4.0
+
+# Stripe SDK (International payments)
+stripe>=8.0.0
+
+# ============================================================================
+# OPTIONAL: Local TTS Providers (for privacy-focused users)
+# ============================================================================
+#
+# Coqui TTS (MPL-2.0 License - safe for commercial use)
+# Enables local TTS processing without cloud dependency.
+# Note: Requires significant disk space (~2GB) and GPU recommended for speed.
+#
+# To install Coqui TTS with subtitle support:
+#   pip install coqui-tts faster-whisper
+#
+# Or install with CUDA support (NVIDIA GPUs):
+#   pip install coqui-tts[cuda] faster-whisper
+#
+# GPU Acceleration Support:
+#   - NVIDIA: CUDA (automatic detection)
+#   - Apple Silicon (M1/M2/M3): MPS (automatic detection)
+#   - No GPU: Falls back to CPU
+#
+# IMPORTANT: faster-whisper is REQUIRED for accurate word-level subtitles!
+# Without it, subtitles will use estimated timing (less accurate).
+# faster-whisper runs 100% locally (MIT license, no data sent to servers)
+# Models download on first use: tiny (~75MB), base (~150MB), small (~500MB)
+#
+# ============================================================================
+# VOICE CLONING (requires Coqui TTS + faster-whisper)
+# ============================================================================
+#
+# Voice cloning allows you to clone any voice from a 5-30 second audio sample.
+# It uses the XTTS v2 model which supports 16 languages.
+#
+# Requirements:
+#   - coqui-tts (pip install coqui-tts)
+#   - faster-whisper (pip install faster-whisper) - REQUIRED for subtitles
+#   - A voice sample audio file (WAV, MP3, FLAC, OGG, or M4A)
+#   - 5-30 seconds of clear speech with single speaker
+#   - Minimal background noise
+#
+# To install all voice cloning dependencies (recommended):
+#   pip install coqui-tts faster-whisper
+#
+# All voice cloning is done 100% locally - no data is sent externally.
+# ============================================================================

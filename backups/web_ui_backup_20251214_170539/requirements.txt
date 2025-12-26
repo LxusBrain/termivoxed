@@ -1,0 +1,18 @@
+# TermiVoxed Web UI - Additional Dependencies
+# Install these in addition to the main project requirements
+
+# FastAPI backend
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+websockets>=12.0
+python-multipart>=0.0.9
+
+# Async HTTP client for LLM APIs
+httpx>=0.26.0
+
+# LLM SDK clients (optional - can use httpx instead)
+# openai>=1.10.0
+# anthropic>=0.18.0
+
+# Already in main requirements:
+# edge-tts, pydantic, pydantic-settings, aiohttp, tenacity, loguru

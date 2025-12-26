@@ -1,0 +1,19 @@
+{
+  "server_host": "termivoxed.local",
+  "server_port": 8000,
+  "tts_cache_enabled": true,
+  "max_concurrent_tts": 2,
+  "tts_proxy_enabled": false,
+  "tts_proxy_url": null,
+  "default_video_codec": "libx264",
+  "default_audio_codec": "aac",
+  "default_crf": 23,
+  "default_preset": "medium",
+  "lossless_crf": 0,
+  "high_crf": 18,
+  "balanced_crf": 23,
+  "tts_volume_boost": 3,
+  "bgm_volume_reduction": 16,
+  "fade_duration": 3.0,
+  "log_level": "INFO"
+}

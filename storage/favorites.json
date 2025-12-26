@@ -1,0 +1,12 @@
+{
+  "favorite_voices": [
+    "en-US-EmmaMultilingualNeural",
+    "en-CA-ClaraNeural",
+    "en-HK-SamNeural",
+    "en-IE-ConnorNeural",
+    "coqui_gilberto_mathias"
+  ],
+  "favorite_fonts": [
+    "Roboto Mono"
+  ]
+}

@@ -1,0 +1,33 @@
+# Development Dependencies
+# Author: Santhosh T
+# Version constraints added for installation stability
+
+# Include all production dependencies
+-r requirements.txt
+
+# Testing Framework
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.0.0
+pytest-mock>=3.12.0
+httpx>=0.26.0
+
+# Code Quality
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.0.0
+isort>=5.12.0
+pylint>=3.0.0
+
+# Documentation
+sphinx>=7.0.0
+sphinx-rtd-theme>=2.0.0
+
+# ============================================================================
+# OPTIONAL: Local TTS Testing
+# ============================================================================
+# Install Coqui TTS for testing local TTS provider:
+#   pip install TTS>=0.22.0
+#
+# Note: Large download (~2GB models), GPU recommended
+# ============================================================================

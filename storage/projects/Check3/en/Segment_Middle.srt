@@ -1,0 +1,8 @@
+1
+00:00:00,000 --> 00:00:04,780
+from simple text to complex strings. Python effortlessly handles
+
+2
+00:00:04,780 --> 00:00:09,640
+every type. MasterStreams today. Now dive deeper for practical uses.
+

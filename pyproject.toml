@@ -1,0 +1,171 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "termivoxed"
+version = "1.0.0"
+description = "AI voice-over dubbing tool for content creators - Add professional voice-overs and styled subtitles to videos without recording your own voice"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "GNU AGPL v3"}
+authors = [
+    {name = "Santhosh T", email = "san.phplogin@gmail.com"},
+]
+maintainers = [
+    {name = "Santhosh T", email = "san.phplogin@gmail.com"},
+]
+keywords = [
+    "voice-over",
+    "dubbing",
+    "ai-voice",
+    "content-creator",
+    "console",
+    "cli",
+    "terminal",
+    "ffmpeg",
+    "text-to-speech",
+    "tts",
+    "edge-tts",
+    "subtitles",
+    "subtitle-styling",
+    "video-dubbing",
+    "anonymous-voice",
+    "privacy",
+    "social-media",
+    "youtube",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Multimedia :: Video :: Conversion",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Text Processing :: Linguistic",
+]
+
+dependencies = [
+    "rich>=13.0.0",
+    "aiohttp>=3.9.0",
+    "edge-tts>=6.1.0",
+    "pygame>=2.5.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "tenacity>=8.0.0",
+    "loguru>=0.7.0",
+    "requests>=2.31.0",
+    "inquirer>=3.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.12.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+    "isort>=5.12.0",
+    "httpx>=0.26.0",  # For async API testing
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.12.0",
+    "httpx>=0.26.0",
+]
+# Local TTS - Coqui (MPL-2.0 license, safe for commercial use)
+# Enables local voice synthesis without cloud dependency
+# Note: Requires ~2GB disk space and GPU recommended for real-time performance
+# faster-whisper is required for accurate word-level subtitle timing
+local-tts = [
+    "TTS>=0.22.0",
+    "faster-whisper>=1.0.0",  # For word-level subtitle timing (MIT license, runs locally)
+]
+# Local TTS with CUDA GPU support (faster synthesis)
+local-tts-cuda = [
+    "TTS[cuda]>=0.22.0",
+    "faster-whisper>=1.0.0",  # For word-level subtitle timing (MIT license, runs locally)
+]
+
+[project.urls]
+Homepage = "https://github.com/san-gitlogin/termivoxed"
+Repository = "https://github.com/san-gitlogin/termivoxed"
+Documentation = "https://github.com/san-gitlogin/termivoxed#readme"
+"Bug Tracker" = "https://github.com/san-gitlogin/termivoxed/issues"
+
+[project.scripts]
+termivoxed = "main:main"
+tvx = "main:main"
+
+[tool.setuptools]
+packages = ["backend", "core", "models", "utils", "ui"]
+
+[tool.setuptools.package-data]
+"*" = ["*.md", "*.txt", "*.json", "*.env.example"]
+
+[tool.black]
+line-length = 100
+target-version = ['py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--verbose",
+    "--color=yes",
+    "--strict-markers",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true

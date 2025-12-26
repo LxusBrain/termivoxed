@@ -1,0 +1,4 @@
+1
+00:00:00,000 --> 00:00:05,185
+Hola mundo! Esta es una prueba del sistema de texto a voz local.
+
