@@ -20,14 +20,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # ============================================================================
 # ASYNCIO CONFIGURATION
 # ============================================================================
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create an instance of the default event loop for the test session."""
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
-    yield loop
-    loop.close()
+# Note: pytest-asyncio is configured with asyncio_mode = "auto" in pyproject.toml
+# The event loop is automatically managed per-function by default
 
 
 # ============================================================================
