@@ -15,7 +15,7 @@ WORKDIR /build
 COPY web_ui/frontend/package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm ci
 
 # Copy frontend source
 COPY web_ui/frontend/ ./

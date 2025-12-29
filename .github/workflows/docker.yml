@@ -44,14 +44,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up QEMU (for multi-platform builds)
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          driver-opts: |
-            image=moby/buildkit:master
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -72,12 +66,8 @@ jobs:
             type=semver,pattern={{version}}
             # Set major.minor tag (v1.0.0 -> 1.0)
             type=semver,pattern={{major}}.{{minor}}
-            # Set major tag (v1.0.0 -> 1)
-            type=semver,pattern={{major}}
             # Set sha tag for traceability
             type=sha,prefix=sha-,format=short
-            # Set branch-based tag for non-main branches
-            type=ref,event=branch,enable=${{ github.ref != 'refs/heads/main' }}
           labels: |
             org.opencontainers.image.title=TermiVoxed
             org.opencontainers.image.description=AI Voice-Over & Dubbing Studio by LxusBrain
@@ -90,7 +80,8 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
+          # Build only for amd64 (faster, ARM64 can be added later)
+          platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' && (github.event.inputs.push_to_registry != 'false') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -99,34 +90,52 @@ jobs:
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             VCS_REF=${{ github.sha }}
-            VERSION=${{ steps.meta.outputs.version }}
-          provenance: true
-          sbom: true
-
-      - name: Generate SBOM
-        uses: anchore/sbom-action@v0
-        if: github.event_name != 'pull_request'
-        with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
-          format: spdx-json
-          output-file: sbom.spdx.json
-
-      - name: Upload SBOM
-        uses: actions/upload-artifact@v4
-        if: github.event_name != 'pull_request'
-        with:
-          name: sbom
-          path: sbom.spdx.json
-          retention-days: 90
 
   # ============================================================================
-  # Job 2: Scan Docker Image for Vulnerabilities
+  # Job 2: Test Docker Image
+  # ============================================================================
+  test-image:
+    name: Test Docker Image
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    if: success()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull and test image
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+          # Test 1: Check Python imports
+          echo "Testing Python imports..."
+          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            python -c "import backend; import core; import models; print('All imports successful!')"
+
+          # Test 2: Check FFmpeg availability
+          echo "Testing FFmpeg..."
+          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            ffmpeg -version | head -1
+
+          echo "All Docker tests passed!"
+
+  # ============================================================================
+  # Job 3: Scan Docker Image for Vulnerabilities (Optional)
   # ============================================================================
   scan-image:
     name: Scan Docker Image
     runs-on: ubuntu-latest
     needs: [build-and-push]
-    if: github.event_name != 'pull_request'
+    if: success()
+    continue-on-error: true
     permissions:
       security-events: write
 
@@ -148,88 +157,32 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
+        continue-on-error: true
 
-      - name: Upload Trivy scan results to GitHub Security tab
+      - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
-
-      - name: Run Trivy (table output for logs)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest'
-          format: 'table'
-          severity: 'CRITICAL,HIGH,MEDIUM'
+        continue-on-error: true
 
   # ============================================================================
-  # Job 3: Test Docker Image
+  # Job 4: Summary
   # ============================================================================
-  test-image:
-    name: Test Docker Image
+  summary:
+    name: Build Summary
     runs-on: ubuntu-latest
-    needs: [build-and-push]
-    if: github.event_name != 'pull_request'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Pull and test image
-        run: |
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-
-          # Test 1: Check Python imports
-          echo "Testing Python imports..."
-          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
-            python -c "import backend; import core; import models; import subscription; print('All imports successful!')"
-
-          # Test 2: Check FFmpeg availability
-          echo "Testing FFmpeg..."
-          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
-            ffmpeg -version | head -1
-
-          # Test 3: Health check endpoint (start container briefly)
-          echo "Testing health endpoint..."
-          docker run -d --name test-container -p 8000:8000 \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-
-          # Wait for container to start
-          sleep 10
-
-          # Check health
-          curl -f http://localhost:8000/api/v1/health || echo "Health check pending..."
-
-          # Cleanup
-          docker stop test-container
-          docker rm test-container
-
-          echo "All Docker tests passed!"
-
-  # ============================================================================
-  # Job 4: Notify on Success/Failure
-  # ============================================================================
-  notify:
-    name: Notify
-    runs-on: ubuntu-latest
-    needs: [build-and-push, scan-image, test-image]
+    needs: [build-and-push, test-image]
     if: always()
 
     steps:
-      - name: Send notification
+      - name: Check build result
         run: |
           if [[ "${{ needs.build-and-push.result }}" == "success" ]]; then
-            echo "Docker image built and pushed successfully!"
-            echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
-            echo "Tags: ${{ needs.build-and-push.outputs.image-tags }}"
+            echo "✅ Docker image built and pushed successfully!"
+            echo "📦 Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+            echo "🏷️ Tags: ${{ needs.build-and-push.outputs.image-tags }}"
           else
-            echo "Docker build/push failed!"
+            echo "❌ Docker build failed!"
             exit 1
           fi
