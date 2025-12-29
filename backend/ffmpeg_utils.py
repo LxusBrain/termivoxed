@@ -292,7 +292,6 @@ async def run_ffmpeg_with_live_progress(
 
         async def read_stderr():
             """Read stderr for error messages"""
-            nonlocal stderr_lines
             while True:
                 line = await process.stderr.readline()
                 if not line:

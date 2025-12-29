@@ -597,8 +597,6 @@ def get_user_consent_manager(user_id: str) -> PrivacyConsentManager:
     Returns:
         PrivacyConsentManager instance for the user
     """
-    global _user_consent_managers
-
     if user_id not in _user_consent_managers:
         # Create user-specific storage path
         home = Path.home()

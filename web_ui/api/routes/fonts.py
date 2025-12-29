@@ -152,8 +152,6 @@ async def check_font(font_name: str = Query(..., description="Font name to check
     for use in video exports.
     """
     # Check if it's in the cache (Google Font)
-    global _fonts_cache
-
     is_google_font = False
     if _fonts_cache:
         is_google_font = any(

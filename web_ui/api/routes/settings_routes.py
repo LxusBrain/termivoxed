@@ -428,8 +428,6 @@ async def update_llm_settings(
     user: AuthenticatedUser = Depends(require_admin)
 ):
     """Update LLM provider settings (requires admin privileges)"""
-    global llm_settings
-
     # Simple API keys
     if update.openai_api_key and update.openai_api_key != "***":
         llm_settings.openai_api_key = update.openai_api_key

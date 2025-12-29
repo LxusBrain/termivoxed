@@ -69,10 +69,12 @@ jobs:
       - name: Lint with flake8
         run: |
           # Stop the build if there are Python syntax errors or undefined names
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Exclude build_tools (contains PyInstaller spec templates with f-strings)
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics \
+            --exclude=venv,__pycache__,.git,build,dist,node_modules,web_ui/frontend,backups,build_tools
           # Exit-zero treats all errors as warnings
           flake8 . --count --exit-zero --max-complexity=15 --max-line-length=120 --statistics \
-            --exclude=venv,__pycache__,.git,build,dist,*.egg-info,web_ui/frontend,web_ui/lxusbrain-website*,backups,node_modules
+            --exclude=venv,__pycache__,.git,build,dist,node_modules,web_ui/frontend,backups,build_tools
 
       - name: Type check with mypy
         run: |

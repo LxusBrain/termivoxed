@@ -108,7 +108,7 @@ def start_server():
 
 def stop_server():
     """Stop the FastAPI server if we started it"""
-    global server_process, server_started_by_us
+    global server_process
     if server_process and server_started_by_us:
         try:
             os.killpg(os.getpgid(server_process.pid), signal.SIGTERM)
