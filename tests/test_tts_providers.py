@@ -323,7 +323,7 @@ class TestCoquiTTSProvider:
         """Test provider capabilities"""
         caps = provider.capabilities
         assert caps.supports_streaming is True
-        assert caps.supports_word_timing is False  # No native word timing
+        assert caps.supports_word_timing is True  # Sentence-level timing via per-sentence generation
         assert caps.supports_voice_cloning is True
         assert caps.requires_consent is False  # Local processing
         assert caps.is_local is True
