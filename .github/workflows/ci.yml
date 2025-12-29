@@ -130,6 +130,14 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
 
+      - name: Cache Python virtual environment
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            venv-${{ runner.os }}-py${{ matrix.python-version }}-
+
       - name: Install FFmpeg
         run: |
           sudo apt-get update
@@ -138,11 +146,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          python -m venv .venv || true
+          source .venv/bin/activate
           pip install -r requirements.txt
           pip install pytest pytest-asyncio pytest-cov pytest-mock httpx
 
       - name: Run unit tests
         run: |
+          source .venv/bin/activate
           pytest tests/ \
             -v \
             --tb=short \
@@ -188,6 +199,14 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
 
+      - name: Cache Python virtual environment
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
+
       - name: Install FFmpeg
         run: |
           sudo apt-get update
@@ -196,11 +215,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          python -m venv .venv || true
+          source .venv/bin/activate
           pip install -r requirements.txt
           pip install pytest pytest-asyncio pytest-cov pytest-mock httpx
 
       - name: Run integration tests
         run: |
+          source .venv/bin/activate
           pytest tests/ \
             -v \
             --tb=short \
@@ -269,6 +291,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: false
+          load: true  # Load image into local Docker daemon for testing
           tags: termivoxed:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -297,12 +320,12 @@ jobs:
 
       - name: Install security tools
         run: |
-          pip install safety bandit
+          pip install pip-audit bandit
 
       - name: Check Python dependencies for vulnerabilities
         run: |
           pip install -r requirements.txt
-          safety check --full-report || true
+          pip-audit --desc on || true
         continue-on-error: true
 
       - name: Run Bandit security linter
@@ -326,10 +349,7 @@ jobs:
   lint-cloud-functions:
     name: Cloud Functions Lint
     runs-on: ubuntu-latest
-    if: |
-      contains(github.event.head_commit.modified, 'cloud_functions/') ||
-      contains(github.event.head_commit.added, 'cloud_functions/') ||
-      github.event_name == 'pull_request'
+    # Always run on PRs; on push, check if cloud_functions directory exists
     defaults:
       run:
         working-directory: cloud_functions/functions
@@ -337,7 +357,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check if cloud functions exist
+        id: check_cf
+        run: |
+          if [ -d "cloud_functions/functions" ] && [ -f "cloud_functions/functions/package.json" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        working-directory: ${{ github.workspace }}
+
       - name: Set up Node.js
+        if: steps.check_cf.outputs.exists == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '18'
@@ -345,9 +376,11 @@ jobs:
           cache-dependency-path: cloud_functions/functions/package-lock.json
 
       - name: Install dependencies
+        if: steps.check_cf.outputs.exists == 'true'
         run: npm ci
 
       - name: Lint cloud functions
+        if: steps.check_cf.outputs.exists == 'true'
         run: npm run lint || true
 
   # ============================================================================

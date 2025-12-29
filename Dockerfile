@@ -88,6 +88,7 @@ COPY backend/ /app/backend/
 COPY core/ /app/core/
 COPY models/ /app/models/
 COPY subscription/ /app/subscription/
+COPY utils/ /app/utils/
 COPY web_ui/api/ /app/web_ui/api/
 COPY config.py main.py /app/
 COPY *.py /app/
@@ -104,6 +105,7 @@ RUN mkdir -p /app/storage/{projects,temp,cache,output,fonts,voice_samples} \
 # Environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app \
     TERMIVOXED_HOST=0.0.0.0 \
     TERMIVOXED_PORT=8000 \
     TERMIVOXED_STORAGE_DIR=/app/storage \

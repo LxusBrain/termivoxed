@@ -24,10 +24,10 @@ env:
 
 jobs:
   # ============================================================================
-  # Job 1: Build, Test, and Push Docker Image
+  # Job 1: Build and Push Docker Image
   # ============================================================================
-  build-test-push:
-    name: Build, Test & Push Docker Image
+  build-and-push:
+    name: Build & Push Docker Image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -35,7 +35,7 @@ jobs:
       id-token: write
 
     outputs:
-      image-digest: ${{ steps.push.outputs.digest }}
+      image-digest: ${{ steps.build.outputs.digest }}
       image-tags: ${{ steps.meta.outputs.tags }}
 
     steps:
@@ -74,44 +74,15 @@ jobs:
             org.opencontainers.image.vendor=LxusBrain Technologies
             org.opencontainers.image.licenses=AGPL-3.0
 
-      # Build image locally for testing (not pushed yet)
-      - name: Build Docker image for testing
+      - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
+          # Build only for amd64 (faster, ARM64 can be added later)
           platforms: linux/amd64
-          load: true
-          tags: termivoxed:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            BUILD_DATE=${{ github.event.head_commit.timestamp }}
-            VCS_REF=${{ github.sha }}
-
-      # Test the locally built image
-      - name: Test Docker image
-        run: |
-          echo "Testing Python imports..."
-          docker run --rm termivoxed:test \
-            python -c "import backend; import core; import models; print('All imports successful!')"
-
-          echo "Testing FFmpeg..."
-          docker run --rm termivoxed:test \
-            ffmpeg -version | head -1
-
-          echo "All Docker tests passed!"
-
-      # Push to registry only after tests pass
-      - name: Push Docker image to registry
-        id: push
-        if: ${{ github.event_name != 'pull_request' && (github.event.inputs.push_to_registry != 'false') }}
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64
-          push: true
+          push: ${{ github.event_name != 'pull_request' && (github.event.inputs.push_to_registry != 'false') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -121,12 +92,51 @@ jobs:
             VCS_REF=${{ github.sha }}
 
   # ============================================================================
-  # Job 2: Scan Docker Image for Vulnerabilities (Optional)
+  # Job 2: Test Docker Image
+  # ============================================================================
+  test-image:
+    name: Test Docker Image
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    if: success()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull and test image
+        run: |
+          # Use digest for reliable image reference (avoids race conditions with tag propagation)
+          IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-push.outputs.image-digest }}"
+          echo "Pulling image: $IMAGE_REF"
+          docker pull "$IMAGE_REF"
+
+          # Test 1: Check Python imports
+          echo "Testing Python imports..."
+          docker run --rm "$IMAGE_REF" \
+            python -c "import backend; import core; import models; print('All imports successful!')"
+
+          # Test 2: Check FFmpeg availability
+          echo "Testing FFmpeg..."
+          docker run --rm "$IMAGE_REF" \
+            ffmpeg -version | head -1
+
+          echo "All Docker tests passed!"
+
+  # ============================================================================
+  # Job 3: Scan Docker Image for Vulnerabilities (Optional)
   # ============================================================================
   scan-image:
     name: Scan Docker Image
     runs-on: ubuntu-latest
-    needs: [build-test-push]
+    needs: [build-and-push]
     if: success()
     continue-on-error: true
     permissions:
@@ -143,15 +153,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull image for scanning
-        run: |
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest || echo "Image not found, skipping scan"
-        continue-on-error: true
-
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest'
+          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-push.outputs.image-digest }}'
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
@@ -165,21 +170,21 @@ jobs:
         continue-on-error: true
 
   # ============================================================================
-  # Job 3: Summary
+  # Job 4: Summary
   # ============================================================================
   summary:
     name: Build Summary
     runs-on: ubuntu-latest
-    needs: [build-test-push]
+    needs: [build-and-push, test-image]
     if: always()
 
     steps:
       - name: Check build result
         run: |
-          if [[ "${{ needs.build-test-push.result }}" == "success" ]]; then
-            echo "✅ Docker image built, tested, and pushed successfully!"
+          if [[ "${{ needs.build-and-push.result }}" == "success" ]]; then
+            echo "✅ Docker image built and pushed successfully!"
             echo "📦 Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
-            echo "🏷️ Tags: ${{ needs.build-test-push.outputs.image-tags }}"
+            echo "🏷️ Tags: ${{ needs.build-and-push.outputs.image-tags }}"
           else
             echo "❌ Docker build failed!"
             exit 1

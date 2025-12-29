@@ -42,19 +42,72 @@ pytestmark = pytest.mark.skipif(
 
 
 # ============================================================================
+# MOCK AUTHENTICATION FOR TESTING
+# ============================================================================
+
+def create_mock_authenticated_user():
+    """
+    Create a mock authenticated user for testing.
+
+    This provides a security-compliant way to test authenticated endpoints
+    by using FastAPI's dependency override mechanism rather than bypassing
+    authentication entirely.
+
+    The mock user represents a valid authenticated user with appropriate
+    subscription tier for testing all features.
+    """
+    from web_ui.api.middleware.auth import AuthenticatedUser
+    from subscription.models import SubscriptionTier, SubscriptionStatus, FeatureAccess
+    from datetime import datetime, timedelta
+
+    return AuthenticatedUser(
+        uid="test-user-uid-12345",
+        email="test@example.com",
+        email_verified=True,
+        display_name="Test User",
+        photo_url=None,
+        subscription_tier=SubscriptionTier.PRO,
+        subscription_status=SubscriptionStatus.ACTIVE,
+        features=FeatureAccess.for_tier(SubscriptionTier.PRO),
+        subscription_expires_at=datetime.now() + timedelta(days=30),
+        device_id="test-device-id",
+    )
+
+
+# ============================================================================
 # FIXTURES
 # ============================================================================
 
 @pytest.fixture
+def mock_user():
+    """Fixture providing a mock authenticated user"""
+    return create_mock_authenticated_user()
+
+
+@pytest.fixture
 def app():
-    """Create FastAPI app for testing"""
+    """Create FastAPI app for testing with auth override"""
     from web_ui.api.main import app
-    return app
+    from web_ui.api.middleware.auth import get_current_user
+
+    # Store original dependency
+    original_dependency = app.dependency_overrides.copy()
+
+    # Override authentication dependency with mock user
+    async def get_mock_user():
+        return create_mock_authenticated_user()
+
+    app.dependency_overrides[get_current_user] = get_mock_user
+
+    yield app
+
+    # Restore original dependencies after test
+    app.dependency_overrides = original_dependency
 
 
 @pytest.fixture
 def client(app):
-    """Create sync test client"""
+    """Create sync test client with mocked authentication"""
     if TestClient is None:
         pytest.skip("TestClient not available")
     return TestClient(app)
@@ -62,7 +115,7 @@ def client(app):
 
 @pytest.fixture
 async def async_client(app):
-    """Create async test client"""
+    """Create async test client with mocked authentication"""
     if AsyncClient is None:
         pytest.skip("AsyncClient not available")
     async with AsyncClient(
@@ -341,13 +394,14 @@ class TestConsentEndpoints:
 # ============================================================================
 
 class TestAsyncEndpoints:
-    """Async tests for TTS endpoints"""
+    """Async tests for TTS endpoints with mocked authentication"""
 
     @pytest.mark.asyncio
     async def test_async_get_providers(self, app):
         """Test async GET /api/v1/tts/providers"""
         try:
             from httpx import AsyncClient, ASGITransport
+            # Note: app fixture already has auth override applied
             async with AsyncClient(
                 transport=ASGITransport(app=app),
                 base_url="http://test"
@@ -364,6 +418,7 @@ class TestAsyncEndpoints:
         """Test async GET /api/v1/tts/languages"""
         try:
             from httpx import AsyncClient, ASGITransport
+            # Note: app fixture already has auth override applied
             async with AsyncClient(
                 transport=ASGITransport(app=app),
                 base_url="http://test"
