@@ -1,0 +1,43 @@
+# TermiVoxed Code Owners
+# These owners will be requested for review on all PRs
+
+# Default owner for everything
+* @san-gitlogin
+
+# Backend (Python)
+/backend/ @san-gitlogin
+/core/ @san-gitlogin
+/models/ @san-gitlogin
+/subscription/ @san-gitlogin
+/web_ui/api/ @san-gitlogin
+*.py @san-gitlogin
+
+# Frontend (React/TypeScript)
+/web_ui/frontend/ @san-gitlogin
+*.tsx @san-gitlogin
+*.ts @san-gitlogin
+
+# Cloud Functions
+/cloud_functions/ @san-gitlogin
+
+# CI/CD and DevOps
+/.github/ @san-gitlogin
+/Dockerfile @san-gitlogin
+/docker-compose.yml @san-gitlogin
+*.yml @san-gitlogin
+*.yaml @san-gitlogin
+
+# Documentation
+*.md @san-gitlogin
+/docs/ @san-gitlogin
+
+# Configuration
+/pyproject.toml @san-gitlogin
+/requirements*.txt @san-gitlogin
+/package*.json @san-gitlogin
+
+# Security-sensitive files (require explicit review)
+/subscription/license_*.py @san-gitlogin
+/subscription/device_fingerprint.py @san-gitlogin
+/web_ui/api/middleware/auth.py @san-gitlogin
+/.env* @san-gitlogin

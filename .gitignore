@@ -22,3 +22,14 @@ web_ui/frontend/dist/
 .DS_Store
 .vscode/
 .idea/
+
+# Firebase
+*-firebase-adminsdk-*.json
+firebase-debug.log
+.firebaserc
+
+# Build output
+dist/
+
+# Logs
+logs/*.log

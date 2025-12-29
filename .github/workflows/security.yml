@@ -1,0 +1,304 @@
+# TermiVoxed Security Scanning Pipeline
+# Author: Santhosh T / LxusBrain Technologies
+#
+# This workflow performs comprehensive security scanning:
+# - Dependency vulnerability scanning
+# - Static Application Security Testing (SAST)
+# - Secret detection
+# - License compliance
+
+name: Security
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly security scan (Sunday at midnight UTC)
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # ============================================================================
+  # Job 1: Python Dependency Scan
+  # ============================================================================
+  python-deps-scan:
+    name: Python Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install safety pip-audit
+
+      - name: Install project dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Safety check
+        run: |
+          safety check --full-report --output json > safety-report.json || true
+          cat safety-report.json
+        continue-on-error: true
+
+      - name: Run pip-audit
+        run: |
+          pip-audit --format json --output pip-audit-report.json || true
+          cat pip-audit-report.json
+        continue-on-error: true
+
+      - name: Upload vulnerability reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-vulnerability-reports
+          path: |
+            safety-report.json
+            pip-audit-report.json
+          retention-days: 90
+
+  # ============================================================================
+  # Job 2: Node.js Dependency Scan
+  # ============================================================================
+  nodejs-deps-scan:
+    name: Node.js Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Audit frontend dependencies
+        working-directory: web_ui/frontend
+        run: |
+          npm ci
+          npm audit --json > npm-audit-frontend.json || true
+          cat npm-audit-frontend.json
+        continue-on-error: true
+
+      - name: Audit cloud functions dependencies
+        working-directory: cloud_functions/functions
+        run: |
+          npm ci
+          npm audit --json > npm-audit-functions.json || true
+        continue-on-error: true
+
+      - name: Upload Node.js audit reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: nodejs-vulnerability-reports
+          path: |
+            web_ui/frontend/npm-audit-frontend.json
+            cloud_functions/functions/npm-audit-functions.json
+          retention-days: 90
+
+  # ============================================================================
+  # Job 3: Static Application Security Testing (SAST)
+  # ============================================================================
+  sast-scan:
+    name: SAST Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Bandit
+        run: pip install bandit
+
+      - name: Run Bandit SAST scan
+        run: |
+          bandit -r backend/ core/ models/ subscription/ web_ui/api/ \
+            -ll \
+            -ii \
+            --exclude '**/tests/**,**/__pycache__/**,**/venv/**' \
+            -f sarif \
+            -o bandit-results.sarif || true
+
+      - name: Upload Bandit results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit-results.sarif
+          category: bandit
+
+      - name: Run Bandit (detailed report)
+        run: |
+          bandit -r backend/ core/ models/ subscription/ web_ui/api/ \
+            -ll \
+            --exclude '**/tests/**,**/__pycache__/**,**/venv/**' \
+            -f json \
+            -o bandit-detailed.json || true
+
+      - name: Upload Bandit detailed report
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-detailed.json
+          retention-days: 90
+
+  # ============================================================================
+  # Job 4: CodeQL Analysis
+  # ============================================================================
+  codeql-analysis:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['python', 'javascript']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  # ============================================================================
+  # Job 5: Secret Detection
+  # ============================================================================
+  secret-scan:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ""
+          head: ${{ github.sha }}
+          extra_args: --only-verified
+        continue-on-error: true
+
+  # ============================================================================
+  # Job 6: License Compliance
+  # ============================================================================
+  license-scan:
+    name: License Compliance
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install license checker
+        run: pip install pip-licenses
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate license report
+        run: |
+          pip-licenses --format=json --output-file=licenses.json
+          pip-licenses --format=markdown --output-file=licenses.md
+
+          # Check for problematic licenses
+          echo "Checking for GPL licenses (may conflict with AGPL)..."
+          pip-licenses | grep -i "gpl" || echo "No GPL licenses found"
+
+      - name: Upload license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-report
+          path: |
+            licenses.json
+            licenses.md
+          retention-days: 90
+
+  # ============================================================================
+  # Job 7: Security Summary
+  # ============================================================================
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [python-deps-scan, nodejs-deps-scan, sast-scan, secret-scan, license-scan]
+    if: always()
+
+    steps:
+      - name: Download all security reports
+        uses: actions/download-artifact@v4
+        with:
+          path: security-reports
+        continue-on-error: true
+
+      - name: Generate security summary
+        run: |
+          echo "# Security Scan Summary" > SECURITY_SUMMARY.md
+          echo "" >> SECURITY_SUMMARY.md
+          echo "**Scan Date:** $(date -u)" >> SECURITY_SUMMARY.md
+          echo "**Commit:** ${{ github.sha }}" >> SECURITY_SUMMARY.md
+          echo "" >> SECURITY_SUMMARY.md
+
+          echo "## Scan Results" >> SECURITY_SUMMARY.md
+          echo "" >> SECURITY_SUMMARY.md
+          echo "| Scan | Status |" >> SECURITY_SUMMARY.md
+          echo "|------|--------|" >> SECURITY_SUMMARY.md
+          echo "| Python Dependencies | ${{ needs.python-deps-scan.result }} |" >> SECURITY_SUMMARY.md
+          echo "| Node.js Dependencies | ${{ needs.nodejs-deps-scan.result }} |" >> SECURITY_SUMMARY.md
+          echo "| SAST (Bandit) | ${{ needs.sast-scan.result }} |" >> SECURITY_SUMMARY.md
+          echo "| Secret Detection | ${{ needs.secret-scan.result }} |" >> SECURITY_SUMMARY.md
+          echo "| License Compliance | ${{ needs.license-scan.result }} |" >> SECURITY_SUMMARY.md
+
+          cat SECURITY_SUMMARY.md
+
+      - name: Upload security summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-summary
+          path: SECURITY_SUMMARY.md
+          retention-days: 90

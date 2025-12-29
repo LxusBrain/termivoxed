@@ -1,0 +1,13 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/san-gitlogin/lxb-termivoxed#readme
+    about: Check out our documentation for guides and tutorials
+
+  - name: Discussions
+    url: https://github.com/san-gitlogin/lxb-termivoxed/discussions
+    about: Ask questions and discuss ideas with the community
+
+  - name: Email Support
+    url: mailto:lxusbrain@gmail.com
+    about: For commercial inquiries or enterprise support
