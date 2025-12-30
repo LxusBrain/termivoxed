@@ -202,20 +202,47 @@ class TestProviderEndpoints:
 class TestVoiceEndpoints:
     """Tests for voice-related endpoints"""
 
-    @pytest.mark.integration
-    @pytest.mark.slow
-    def test_get_voices(self, client):
+    @pytest.fixture
+    def mock_voice_list(self):
+        """Mock TTS service voice list for testing without network"""
+        # Mock voices must include all fields required by VoiceInfo schema:
+        # name, short_name, gender, language, locale
+        mock_voices = [
+            {
+                "name": "Ava",
+                "short_name": "en-US-AvaMultilingualNeural",
+                "language": "en-US",
+                "locale": "en-US",
+                "gender": "Female",
+            },
+            {
+                "name": "Andrew",
+                "short_name": "en-US-AndrewMultilingualNeural",
+                "language": "en-US",
+                "locale": "en-US",
+                "gender": "Male",
+            }
+        ]
+        with patch('web_ui.api.routes.tts.tts_service') as mock:
+            # Mock the actual method names from tts_service
+            mock.get_available_voices = AsyncMock(return_value=mock_voices)
+            mock.get_voices_for_provider = AsyncMock(return_value=mock_voices)
+            yield mock
+
+    def test_get_voices(self, client, mock_voice_list):
         """Test GET /api/v1/tts/voices"""
         response = client.get("/api/v1/tts/voices")
-        # May timeout without network, but endpoint should exist
-        assert response.status_code in [200, 500]
+        assert response.status_code == 200
+        data = response.json()
+        assert "voices" in data
+        assert isinstance(data["voices"], list)
 
-    @pytest.mark.integration
-    @pytest.mark.slow
-    def test_get_voices_by_language(self, client):
+    def test_get_voices_by_language(self, client, mock_voice_list):
         """Test GET /api/v1/tts/voices with language filter"""
         response = client.get("/api/v1/tts/voices", params={"language": "en"})
-        assert response.status_code in [200, 500]
+        assert response.status_code == 200
+        data = response.json()
+        assert "voices" in data
 
     def test_get_best_voices(self, client):
         """Test GET /api/v1/tts/voices/best"""
@@ -241,20 +268,22 @@ class TestVoiceEndpoints:
         assert "name" in lang
         assert "best_voice" in lang
 
-    @pytest.mark.integration
-    @pytest.mark.slow
-    def test_get_provider_voices(self, client):
+    def test_get_provider_voices(self, client, mock_voice_list):
         """Test GET /api/v1/tts/providers/{provider}/voices"""
         response = client.get("/api/v1/tts/providers/edge_tts/voices")
-        assert response.status_code in [200, 500]
+        assert response.status_code == 200
+        data = response.json()
+        assert "voices" in data
 
-    def test_get_provider_voices_with_language(self, client):
+    def test_get_provider_voices_with_language(self, client, mock_voice_list):
         """Test GET /api/v1/tts/providers/{provider}/voices with language"""
         response = client.get(
             "/api/v1/tts/providers/edge_tts/voices",
             params={"language": "en"}
         )
-        assert response.status_code in [200, 500]
+        assert response.status_code == 200
+        data = response.json()
+        assert "voices" in data
 
 
 # ============================================================================
@@ -263,6 +292,37 @@ class TestVoiceEndpoints:
 
 class TestGenerationEndpoints:
     """Tests for audio generation endpoints"""
+
+    @pytest.fixture
+    def mock_tts_generation(self, tmp_path):
+        """Mock TTS service for generation tests"""
+        # Create a fake audio file in a subdirectory matching expected structure
+        storage_dir = tmp_path / "storage"
+        storage_dir.mkdir(parents=True, exist_ok=True)
+        fake_audio = storage_dir / "test_audio.mp3"
+        fake_audio.write_bytes(b"fake audio content")
+
+        # Mock settings to use our temp directory as STORAGE_DIR
+        mock_settings = MagicMock()
+        mock_settings.STORAGE_DIR = str(tmp_path / "storage")
+
+        # The actual TTS service methods return tuples (audio_path, subtitle_path)
+        with patch('web_ui.api.routes.tts.tts_service') as mock_tts, \
+             patch('web_ui.api.routes.tts.FFmpegUtils') as mock_ffmpeg, \
+             patch('web_ui.api.routes.tts.settings', mock_settings):
+            # Mock the generation methods - they return (audio_path, subtitle_path) tuples
+            mock_tts.generate_with_resilience = AsyncMock(
+                return_value=(str(fake_audio), None)
+            )
+            mock_tts.generate_audio_with_provider = AsyncMock(
+                return_value=(str(fake_audio), None)
+            )
+            # Mock cache methods to skip cache
+            mock_tts._generate_cache_key = MagicMock(return_value="test_cache_key")
+            mock_tts.find_cached_files = MagicMock(return_value=(None, None))
+            # Mock FFmpeg duration check
+            mock_ffmpeg.get_media_duration = MagicMock(return_value=2.5)
+            yield mock_tts
 
     def test_estimate_duration(self, client):
         """Test POST /api/v1/tts/estimate-duration"""
@@ -281,9 +341,7 @@ class TestGenerationEndpoints:
         assert "estimated_duration" in data
         assert data["word_count"] == 7
 
-    @pytest.mark.integration
-    @pytest.mark.slow
-    def test_preview_voice(self, client):
+    def test_preview_voice(self, client, mock_tts_generation):
         """Test POST /api/v1/tts/preview"""
         response = client.post(
             "/api/v1/tts/preview",
@@ -295,12 +353,9 @@ class TestGenerationEndpoints:
                 "pitch": "+0Hz"
             }
         )
-        # May fail without network
-        assert response.status_code in [200, 500]
+        assert response.status_code == 200
 
-    @pytest.mark.integration
-    @pytest.mark.slow
-    def test_generate_tts(self, client):
+    def test_generate_tts(self, client, mock_tts_generation):
         """Test POST /api/v1/tts/generate"""
         response = client.post(
             "/api/v1/tts/generate",
@@ -316,8 +371,7 @@ class TestGenerationEndpoints:
                 "orientation": "horizontal"
             }
         )
-        # May fail without network
-        assert response.status_code in [200, 500]
+        assert response.status_code == 200
 
 
 # ============================================================================

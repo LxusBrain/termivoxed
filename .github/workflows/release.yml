@@ -213,6 +213,7 @@ jobs:
             --add-data "core;core" `
             --add-data "models;models" `
             --add-data "subscription;subscription" `
+            --add-data "utils;utils" `
             --hidden-import=uvicorn.logging `
             --hidden-import=uvicorn.loops `
             --hidden-import=uvicorn.loops.auto `
@@ -225,7 +226,6 @@ jobs:
             --hidden-import=uvicorn.lifespan.on `
             main.py
         shell: pwsh
-        continue-on-error: true
 
       - name: Create Windows installer (placeholder)
         run: |
@@ -293,6 +293,7 @@ jobs:
             --add-data "core:core" \
             --add-data "models:models" \
             --add-data "subscription:subscription" \
+            --add-data "utils:utils" \
             --hidden-import=uvicorn.logging \
             --hidden-import=uvicorn.loops \
             --hidden-import=uvicorn.loops.auto \
@@ -304,7 +305,6 @@ jobs:
             --hidden-import=uvicorn.lifespan \
             --hidden-import=uvicorn.lifespan.on \
             main.py
-        continue-on-error: true
 
       - name: Create DMG
         run: |
@@ -371,6 +371,7 @@ jobs:
             --add-data "core:core" \
             --add-data "models:models" \
             --add-data "subscription:subscription" \
+            --add-data "utils:utils" \
             --hidden-import=uvicorn.logging \
             --hidden-import=uvicorn.loops \
             --hidden-import=uvicorn.loops.auto \
@@ -382,7 +383,6 @@ jobs:
             --hidden-import=uvicorn.lifespan \
             --hidden-import=uvicorn.lifespan.on \
             main.py
-        continue-on-error: true
 
       - name: Create AppImage
         run: |
