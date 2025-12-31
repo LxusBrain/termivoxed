@@ -413,14 +413,15 @@ def get_price_ids() -> Dict[str, Dict[str, str]]:
     """
     return {
         "razorpay": {
-            "individual_monthly": os.environ.get("RAZORPAY_PRICE_INDIVIDUAL_MONTHLY", "plan_test_individual_monthly"),
-            "individual_quarterly": os.environ.get("RAZORPAY_PRICE_INDIVIDUAL_QUARTERLY", "plan_test_individual_quarterly"),
-            "individual_yearly": os.environ.get("RAZORPAY_PRICE_INDIVIDUAL_YEARLY", "plan_test_individual_yearly"),
-            "pro_monthly": os.environ.get("RAZORPAY_PRICE_PRO_MONTHLY", "plan_test_pro_monthly"),
-            "pro_quarterly": os.environ.get("RAZORPAY_PRICE_PRO_QUARTERLY", "plan_test_pro_quarterly"),
-            "pro_yearly": os.environ.get("RAZORPAY_PRICE_PRO_YEARLY", "plan_test_pro_yearly"),
-            "enterprise_monthly": os.environ.get("RAZORPAY_PRICE_ENTERPRISE_MONTHLY", "plan_test_enterprise_monthly"),
-            "enterprise_yearly": os.environ.get("RAZORPAY_PRICE_ENTERPRISE_YEARLY", "plan_test_enterprise_yearly"),
+            # LIVE MODE - Production Plan IDs
+            "individual_monthly": os.environ.get("RAZORPAY_PRICE_INDIVIDUAL_MONTHLY", "plan_RyKRBwY9cpeDxq"),
+            "individual_quarterly": os.environ.get("RAZORPAY_PRICE_INDIVIDUAL_QUARTERLY", ""),  # Not available
+            "individual_yearly": os.environ.get("RAZORPAY_PRICE_INDIVIDUAL_YEARLY", "plan_RyKSNpXx4eJQKq"),
+            "pro_monthly": os.environ.get("RAZORPAY_PRICE_PRO_MONTHLY", "plan_RyKT7aXL8NDQPF"),
+            "pro_quarterly": os.environ.get("RAZORPAY_PRICE_PRO_QUARTERLY", ""),  # Not available
+            "pro_yearly": os.environ.get("RAZORPAY_PRICE_PRO_YEARLY", "plan_RyKTcZY7W7WtqL"),
+            "enterprise_monthly": os.environ.get("RAZORPAY_PRICE_ENTERPRISE_MONTHLY", ""),  # Contact sales
+            "enterprise_yearly": os.environ.get("RAZORPAY_PRICE_ENTERPRISE_YEARLY", ""),  # Contact sales
         },
         "stripe": {
             "individual_monthly": os.environ.get("STRIPE_PRICE_INDIVIDUAL_MONTHLY", "price_test_individual_monthly"),
