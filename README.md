@@ -27,18 +27,21 @@ TermiVoxed is a professional video dubbing and voice-over platform that combines
 ## Features
 
 ### Voice Generation
+
 - **200+ AI Voices** - Natural-sounding voices in 80+ languages
 - **Voice Cloning** - Clone voices with just 6 seconds of audio (Pro+)
 - **Multiple TTS Engines** - Edge-TTS (cloud) + Coqui (local fallback)
 - **Voice Preview** - Listen before you commit
 
 ### Subtitle Styling
+
 - **Google Fonts Integration** - 1000+ fonts auto-installed
 - **Full Customization** - Colors, borders, shadows, positioning
 - **Multi-language Support** - Language-specific font recommendations
 - **ASS Format** - Professional subtitle rendering
 
 ### Video Processing
+
 - **Multi-Video Projects** - Work with multiple videos seamlessly
 - **Smart Audio Mixing** - Balanced voice-over and background audio
 - **Background Music** - Add BGM with auto-loop and fade
@@ -46,6 +49,7 @@ TermiVoxed is a professional video dubbing and voice-over platform that combines
 - **Quality Presets** - Lossless, High, Balanced export options
 
 ### Platform
+
 - **Web Interface** - Modern React-based UI
 - **Desktop Apps** - Windows (.exe) and macOS (.dmg)
 - **Cross-Platform** - Works on Windows, macOS, and Linux
@@ -63,6 +67,7 @@ Visit [termivoxed.luxusbrain.com](https://termivoxed.luxusbrain.com) to get star
 ### Desktop Application
 
 Download the latest version for your platform:
+
 - **Windows**: [Download .exe installer](https://termivoxed.luxusbrain.com/download/windows)
 - **macOS**: [Download .dmg](https://termivoxed.luxusbrain.com/download/macos)
 
@@ -93,15 +98,16 @@ docker-compose up -d
 
 ## Pricing
 
-| Plan | Exports/Month | Price (INR) | Price (USD) |
-|------|---------------|-------------|-------------|
-| **Free Trial** | 5 exports | Free | Free |
-| **Individual** | 200 exports | ₹499/mo | $6.99/mo |
-| **Pro** | 500 exports | ₹999/mo | $12.99/mo |
-| **Enterprise** | 2000 exports | Custom | Custom |
-| **Lifetime** | 500/mo forever | ₹4,999 | $59.99 |
+| Plan           | Exports/Month  | Price (INR) | Price (USD) |
+| -------------- | -------------- | ----------- | ----------- |
+| **Free Trial** | 5 exports      | Free        | Free        |
+| **Individual** | 200 exports    | ₹499/mo     | $6.99/mo    |
+| **Pro**        | 500 exports    | ₹999/mo     | $12.99/mo   |
+| **Enterprise** | 2000 exports   | Custom      | Custom      |
+| **Lifetime**   | 500/mo forever | ₹4,999      | $59.99      |
 
 All paid plans include:
+
 - Watermark-free exports
 - Priority TTS processing
 - Voice cloning (Pro+)
@@ -111,23 +117,25 @@ All paid plans include:
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [Proxy Setup](PROXY_SETUP.md) | Configure corporate proxy for TTS |
-| [Contributing](CONTRIBUTING.md) | Contribution guidelines |
-| [Changelog](CHANGELOG.md) | Version history |
+| Document                        | Description                       |
+| ------------------------------- | --------------------------------- |
+| [Proxy Setup](PROXY_SETUP.md)   | Configure corporate proxy for TTS |
+| [Contributing](CONTRIBUTING.md) | Contribution guidelines           |
+| [Changelog](CHANGELOG.md)       | Version history                   |
 
 ---
 
 ## System Requirements
 
 ### Minimum
+
 - **OS**: Windows 10, macOS 10.14, Ubuntu 20.04
 - **RAM**: 4 GB
 - **Storage**: 2 GB free space
 - **FFmpeg**: Required for video processing
 
 ### Recommended
+
 - **RAM**: 8 GB+
 - **Storage**: 10 GB+ (for voice models)
 - **GPU**: CUDA-compatible (for local TTS)
@@ -136,15 +144,15 @@ All paid plans include:
 
 ## Tech Stack
 
-| Component | Technology |
-|-----------|------------|
-| Frontend | React 18, TypeScript, TailwindCSS, Zustand |
-| Backend | FastAPI, Python 3.8+ |
-| Database | Firebase Firestore |
-| Auth | Firebase Authentication |
-| Payments | Razorpay (India), Stripe (International) |
-| TTS | Edge-TTS, Coqui TTS |
-| Video | FFmpeg |
+| Component | Technology                                 |
+| --------- | ------------------------------------------ |
+| Frontend  | React 18, TypeScript, TailwindCSS, Zustand |
+| Backend   | FastAPI, Python 3.8+                       |
+| Database  | Firebase Firestore                         |
+| Auth      | Firebase Authentication                    |
+| Payments  | Razorpay (India), Stripe (International)   |
+| TTS       | Edge-TTS, Coqui TTS                        |
+| Video     | FFmpeg                                     |
 
 ---
 
@@ -177,7 +185,7 @@ All paid plans include:
 
 ## License
 
-Copyright 2024-2025 LXUSBrain Technologies. All rights reserved.
+Copyright 2024-2025 LxusBrain. All rights reserved.
 
 This software is proprietary. See [LICENSE](LICENSE) for details.
 

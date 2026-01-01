@@ -24,8 +24,8 @@ APP_NAME = 'TermiVoxed'
 APP_VERSION = '1.0.0'
 APP_BUNDLE_ID = 'com.lxusbrain.termivoxed'
 APP_DESCRIPTION = 'AI Voice-Over Dubbing Tool'
-APP_AUTHOR = 'LXUSBrain Technologies'
-APP_COPYRIGHT = 'Copyright (C) 2025 LXUSBrain Technologies'
+APP_AUTHOR = 'LxusBrain'
+APP_COPYRIGHT = 'Copyright (C) 2025 LxusBrain'
 
 # Main script
 APP = [str(PROJECT_ROOT / 'main.py')]

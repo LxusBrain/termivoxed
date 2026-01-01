@@ -1,5 +1,5 @@
 # TermiVoxed Release Pipeline
-# Author: Santhosh T / LxusBrain Technologies
+# Author: Santhosh T / LxusBrain
 #
 # This workflow handles automated releases including:
 # - Semantic versioning
@@ -11,15 +11,15 @@ name: Release
 
 on:
   push:
-    tags: ['v*.*.*']
+    tags: ["v*.*.*"]
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 1.0.0)'
+        description: "Version to release (e.g., 1.0.0)"
         required: true
         type: string
       prerelease:
-        description: 'Mark as pre-release'
+        description: "Mark as pre-release"
         required: false
         default: false
         type: boolean
@@ -29,8 +29,8 @@ permissions:
   packages: write
 
 env:
-  PYTHON_VERSION: '3.11'
-  NODE_VERSION: '20'
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
 
 jobs:
   # ============================================================================
@@ -406,7 +406,8 @@ jobs:
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [prepare-release, build-python, build-windows, build-macos, build-linux]
+    needs:
+      [prepare-release, build-python, build-windows, build-macos, build-linux]
 
     steps:
       - name: Checkout code
@@ -467,7 +468,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: "18"
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools

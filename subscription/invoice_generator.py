@@ -110,7 +110,7 @@ class InvoicePDFGenerator:
     Falls back to HTML template if reportlab is not available.
 
     Company details are configured via environment variables:
-    - TERMIVOXED_COMPANY_NAME: Legal company name (default: LXUSBrain Technologies)
+    - TERMIVOXED_COMPANY_NAME: Legal company name (default: LxusBrain)
     - TERMIVOXED_COMPANY_ADDRESS: Street address
     - TERMIVOXED_COMPANY_CITY: City
     - TERMIVOXED_COMPANY_STATE: State
@@ -122,7 +122,7 @@ class InvoicePDFGenerator:
 
     # Company details from environment (with sensible defaults)
     COMPANY_NAME = "TermiVoxed"
-    COMPANY_LEGAL_NAME = os.getenv("TERMIVOXED_COMPANY_NAME", "LXUSBrain Technologies")
+    COMPANY_LEGAL_NAME = os.getenv("TERMIVOXED_COMPANY_NAME", "LxusBrain")
 
     @classmethod
     def get_company_address(cls) -> InvoiceAddress:

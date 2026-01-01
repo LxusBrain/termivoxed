@@ -147,11 +147,11 @@ VSVersionInfo(
       [
         StringTable(
           u'040904B0',
-          [StringStruct(u'CompanyName', u'LXUSBrain Technologies'),
+          [StringStruct(u'CompanyName', u'LxusBrain'),
           StringStruct(u'FileDescription', u'TermiVoxed - AI Voice-Over Dubbing Tool'),
           StringStruct(u'FileVersion', u'$Version'),
           StringStruct(u'InternalName', u'TermiVoxed'),
-          StringStruct(u'LegalCopyright', u'Copyright (C) 2025 LXUSBrain Technologies'),
+          StringStruct(u'LegalCopyright', u'Copyright (C) 2025 LxusBrain'),
           StringStruct(u'OriginalFilename', u'TermiVoxed.exe'),
           StringStruct(u'ProductName', u'TermiVoxed'),
           StringStruct(u'ProductVersion', u'$Version')])

@@ -49,7 +49,7 @@ if [ -z "$APPLE_APP_PASSWORD" ]; then
 fi
 
 # Default signing identity
-SIGNING_IDENTITY="${SIGNING_IDENTITY:-Developer ID Application: LXUSBrain Technologies}"
+SIGNING_IDENTITY="${SIGNING_IDENTITY:-Developer ID Application: LxusBrain}"
 
 echo "========================================"
 echo " TermiVoxed Notarization"

@@ -247,7 +247,7 @@ def main():
     """Main entry point for TermiVoxed desktop application."""
     print("=" * 60)
     print("  TermiVoxed - AI Voice-Over Dubbing Studio")
-    print("  By LXUSBrain Technologies")
+    print("  By LxusBrain")
     print("=" * 60)
 
     # Setup environment for bundled dependencies

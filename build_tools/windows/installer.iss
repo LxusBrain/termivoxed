@@ -2,7 +2,7 @@
 ; Inno Setup Script for creating Windows installer
 ;
 ; Author: Santhosh T
-; Copyright: 2025 LXUSBrain Technologies
+; Copyright: 2025 LxusBrain
 ;
 ; Build Instructions:
 ; 1. Install Inno Setup from https://jrsoftware.org/isdl.php
@@ -11,7 +11,7 @@
 
 #define MyAppName "TermiVoxed"
 #define MyAppVersion "1.0.0"
-#define MyAppPublisher "LXUSBrain Technologies"
+#define MyAppPublisher "LxusBrain"
 #define MyAppURL "https://termivoxed.com"
 #define MyAppExeName "TermiVoxed.exe"
 #define MyAppDescription "AI Voice-Over Dubbing Tool"

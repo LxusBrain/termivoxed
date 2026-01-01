@@ -21,7 +21,7 @@ sys.path.insert(0, project_root)
 # Application metadata
 APP_NAME = 'TermiVoxed'
 APP_VERSION = '1.0.0'
-APP_AUTHOR = 'LXUSBrain Technologies'
+APP_AUTHOR = 'LxusBrain'
 APP_DESCRIPTION = 'AI Voice-Over Dubbing Tool'
 
 # Collect all source files

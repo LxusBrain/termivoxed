@@ -146,7 +146,7 @@ class EmailTemplates:
     <div class="footer">
         <p>This email was sent by TermiVoxed. Do not reply to this email.</p>
         <p>Questions? Contact us at support@termivoxed.com</p>
-        <p>&copy; {datetime.now().year} LXUSBrain Technologies. All rights reserved.</p>
+        <p>&copy; {datetime.now().year} LxusBrain. All rights reserved.</p>
     </div>
 </body>
 </html>

@@ -1,5 +1,5 @@
 # TermiVoxed Docker Build & Push Pipeline
-# Author: Santhosh T / LxusBrain Technologies
+# Author: Santhosh T / LxusBrain
 #
 # This workflow builds and pushes Docker images to GitHub Container Registry.
 # Triggered on pushes to main branch and release tags.
@@ -9,11 +9,11 @@ name: Docker Build & Push
 on:
   push:
     branches: [main]
-    tags: ['v*.*.*']
+    tags: ["v*.*.*"]
   workflow_dispatch:
     inputs:
       push_to_registry:
-        description: 'Push image to registry'
+        description: "Push image to registry"
         required: true
         default: true
         type: boolean
@@ -71,7 +71,7 @@ jobs:
           labels: |
             org.opencontainers.image.title=TermiVoxed
             org.opencontainers.image.description=AI Voice-Over & Dubbing Studio by LxusBrain
-            org.opencontainers.image.vendor=LxusBrain Technologies
+            org.opencontainers.image.vendor=LxusBrain
             org.opencontainers.image.licenses=AGPL-3.0
 
       - name: Build and push Docker image
@@ -156,17 +156,17 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-push.outputs.image-digest }}'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
+          image-ref: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-push.outputs.image-digest }}"
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
         continue-on-error: true
 
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif_file: 'trivy-results.sarif'
+          sarif_file: "trivy-results.sarif"
         continue-on-error: true
 
   # ============================================================================

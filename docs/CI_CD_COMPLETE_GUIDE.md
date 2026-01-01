@@ -1,6 +1,6 @@
 # TermiVoxed CI/CD Complete Guide
 
-> **Author:** Santhosh T / LxusBrain Technologies
+> **Author:** Santhosh T / LxusBrain
 > **Last Updated:** December 30, 2025
 > **Purpose:** Complete documentation of CI/CD setup, maintenance, and developer workflows
 
@@ -24,6 +24,7 @@
 ## 1. What is CI/CD?
 
 ### CI = Continuous Integration
+
 **Definition:** Automatically testing and validating code every time a developer pushes changes.
 
 ```
@@ -31,12 +32,14 @@ Developer pushes code → CI runs tests → Pass/Fail feedback
 ```
 
 **What CI checks:**
+
 - Does the code compile/build?
 - Do all tests pass?
 - Are there any security vulnerabilities?
 - Does the code follow style guidelines (linting)?
 
 ### CD = Continuous Deployment/Delivery
+
 **Definition:** Automatically deploying code to production when tests pass.
 
 ```
@@ -44,6 +47,7 @@ Code passes CI → CD deploys to production → Users get updates
 ```
 
 **What CD does:**
+
 - Builds production-ready packages
 - Creates installers (Windows .exe, macOS .dmg, Linux .tar.gz)
 - Publishes to download servers
@@ -52,12 +56,14 @@ Code passes CI → CD deploys to production → Users get updates
 ### Why This Matters for TermiVoxed
 
 Without CI/CD:
+
 - Manual testing on each platform (Windows, macOS, Linux)
 - Risk of releasing broken builds
 - Hours spent building installers manually
 - No guarantee that what works locally works everywhere
 
 With CI/CD:
+
 - Every push is tested on all platforms automatically
 - Broken code is caught before release
 - Installers are built automatically
@@ -68,12 +74,15 @@ With CI/CD:
 ## 2. Why CI/CD Matters for Desktop Apps
 
 ### The Challenge
+
 TermiVoxed runs on 3 platforms:
+
 - **Windows** (PyInstaller → .exe)
 - **macOS** (PyInstaller → .app → .dmg)
 - **Linux** (PyInstaller → binary → .tar.gz)
 
 Each platform has different:
+
 - File path separators (`\` vs `/`)
 - FFmpeg installation methods
 - Python package behaviors
@@ -120,12 +129,12 @@ termivoxed/
 
 ### CI/CD Pipelines
 
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `ci.yml` | Every push/PR | Test, lint, build verification |
-| `release.yml` | Version tags (v1.0.0) | Create installers & GitHub releases |
-| `docker.yml` | Push to main | Build & push Docker images |
-| `security.yml` | Push/schedule | Security vulnerability scanning |
+| Workflow       | Trigger               | Purpose                             |
+| -------------- | --------------------- | ----------------------------------- |
+| `ci.yml`       | Every push/PR         | Test, lint, build verification      |
+| `release.yml`  | Version tags (v1.0.0) | Create installers & GitHub releases |
+| `docker.yml`   | Push to main          | Build & push Docker images          |
+| `security.yml` | Push/schedule         | Security vulnerability scanning     |
 
 ---
 
@@ -178,16 +187,16 @@ termivoxed/
 
 ### What Each Job Does
 
-| Job | Purpose | Key Commands |
-|-----|---------|--------------|
-| `lint-python` | Check Python code style | `black --check`, `flake8`, `mypy` |
-| `lint-frontend` | Check TypeScript | `npx tsc --noEmit` |
-| `test-python` | Run unit tests | `pytest tests/ --cov` |
-| `build-frontend` | Build React app | `npm run build` |
-| `build-desktop` | Test PyInstaller builds | `pyinstaller main.py` |
-| `build-docker` | Build container | `docker build` |
-| `security-scan` | Find vulnerabilities | `pip-audit`, `bandit` |
-| `ci-success` | Gate for merging | Checks all jobs passed |
+| Job              | Purpose                 | Key Commands                      |
+| ---------------- | ----------------------- | --------------------------------- |
+| `lint-python`    | Check Python code style | `black --check`, `flake8`, `mypy` |
+| `lint-frontend`  | Check TypeScript        | `npx tsc --noEmit`                |
+| `test-python`    | Run unit tests          | `pytest tests/ --cov`             |
+| `build-frontend` | Build React app         | `npm run build`                   |
+| `build-desktop`  | Test PyInstaller builds | `pyinstaller main.py`             |
+| `build-docker`   | Build container         | `docker build`                    |
+| `security-scan`  | Find vulnerabilities    | `pip-audit`, `bandit`             |
+| `ci-success`     | Gate for merging        | Checks all jobs passed            |
 
 ---
 
@@ -196,6 +205,7 @@ termivoxed/
 ### Issue Discovery Process
 
 #### Step 1: Read Existing Test Files
+
 ```bash
 # Find all test files
 find tests -name "*.py" -type f
@@ -206,6 +216,7 @@ grep -r "def test_" tests/*.py | wc -l
 ```
 
 #### Step 2: Check for Fake/Placeholder Tests
+
 ```bash
 # Look for suspicious assertions
 grep -r "assert.*in \[200, 500\]" tests/
@@ -213,6 +224,7 @@ grep -r "continue-on-error" .github/workflows/
 ```
 
 #### Step 3: Analyze CI Workflow
+
 ```bash
 # Read the workflow file
 cat .github/workflows/ci.yml
@@ -226,12 +238,14 @@ grep -E "^  [a-z].*:" .github/workflows/ci.yml
 #### Issue 1: Fake Tests (6 tests accepting 500 errors)
 
 **Problem:** Tests were accepting both 200 and 500 status codes:
+
 ```python
 # BAD - This always passes even when the API fails
 assert response.status_code in [200, 500]
 ```
 
 **Fix:** Proper mocking with correct method names:
+
 ```python
 # GOOD - Proper mock setup
 @pytest.fixture
@@ -252,6 +266,7 @@ def mock_tts_generation(self, tmp_path):
 ```
 
 **How to find correct method names:**
+
 ```bash
 # Search the actual route code for method calls
 grep -n "tts_service\." web_ui/api/routes/tts.py
@@ -263,6 +278,7 @@ grep -n "tts_service\." web_ui/api/routes/tts.py
 **Problem:** PyInstaller builds were only tested during releases, not on PRs.
 
 **Fix:** Added `build-desktop` job to CI:
+
 ```yaml
 build-desktop:
   name: Desktop Build (${{ matrix.os }})
@@ -279,17 +295,20 @@ build-desktop:
 #### Issue 3: Missing Schema Fields in Mocks
 
 **Problem:** Mock data didn't match Pydantic schema:
+
 ```python
 # Schema requires: name, short_name, gender, language, locale
 # Mock only had: id, name, language, gender, provider
 ```
 
 **How to find schema:**
+
 ```bash
 grep -A 10 "class VoiceInfo" web_ui/api/schemas/tts_schemas.py
 ```
 
 **Fix:**
+
 ```python
 mock_voices = [
     {
@@ -536,6 +555,7 @@ v1.2.3
 ```
 
 **Examples:**
+
 - `v1.0.0` → `v1.0.1`: Bug fix
 - `v1.0.1` → `v1.1.0`: New feature added
 - `v1.1.0` → `v2.0.0`: Major redesign, breaking changes
@@ -573,6 +593,7 @@ gh release view v1.0.1
 ### Common CI Failures
 
 #### "Module not found" Error
+
 ```bash
 # Check if module is in requirements.txt
 grep "module_name" requirements.txt
@@ -582,6 +603,7 @@ echo "module_name>=1.0.0" >> requirements.txt
 ```
 
 #### "Test failed" Error
+
 ```bash
 # Run the specific failing test locally
 pytest tests/test_file.py::TestClass::test_method -v --tb=long
@@ -591,6 +613,7 @@ grep -A 20 "def mock_" tests/test_file.py
 ```
 
 #### "PyInstaller build failed"
+
 ```bash
 # Check if all add-data paths exist
 ls -la web_ui/frontend/dist/
@@ -602,6 +625,7 @@ pyinstaller --help | grep hidden
 ```
 
 #### "Docker build failed"
+
 ```bash
 # Build locally to see full error
 docker build -t termivoxed:test .
@@ -635,7 +659,7 @@ Save as `scripts/release.sh`:
 #!/bin/bash
 #
 # TermiVoxed Release Automation Script
-# Author: Santhosh T / LxusBrain Technologies
+# Author: Santhosh T / LxusBrain
 #
 # Usage: ./scripts/release.sh [major|minor|patch]
 #
@@ -945,7 +969,7 @@ Save as `scripts/dev.sh`:
 #!/bin/bash
 #
 # TermiVoxed Development Helper Script
-# Author: Santhosh T / LxusBrain Technologies
+# Author: Santhosh T / LxusBrain
 #
 # Usage: ./scripts/dev.sh [command]
 #
@@ -1051,32 +1075,35 @@ chmod +x scripts/dev.sh
 ## Appendix: Quick Reference Card
 
 ### Git Commands
-| Action | Command |
-|--------|---------|
-| Create branch | `git checkout -b feature/name` |
-| Stage all | `git add .` |
-| Commit | `git commit -m "message"` |
-| Push branch | `git push origin branch-name` |
-| Create tag | `git tag -a v1.0.0 -m "Release"` |
-| Push tag | `git push origin v1.0.0` |
+
+| Action        | Command                          |
+| ------------- | -------------------------------- |
+| Create branch | `git checkout -b feature/name`   |
+| Stage all     | `git add .`                      |
+| Commit        | `git commit -m "message"`        |
+| Push branch   | `git push origin branch-name`    |
+| Create tag    | `git tag -a v1.0.0 -m "Release"` |
+| Push tag      | `git push origin v1.0.0`         |
 
 ### GitHub CLI Commands
-| Action | Command |
-|--------|---------|
-| Create PR | `gh pr create --title "Title" --base main` |
-| Merge PR | `gh pr merge 123 --squash` |
-| List runs | `gh run list` |
-| View run | `gh run view 12345678` |
-| View release | `gh release view v1.0.0` |
+
+| Action       | Command                                    |
+| ------------ | ------------------------------------------ |
+| Create PR    | `gh pr create --title "Title" --base main` |
+| Merge PR     | `gh pr merge 123 --squash`                 |
+| List runs    | `gh run list`                              |
+| View run     | `gh run view 12345678`                     |
+| View release | `gh release view v1.0.0`                   |
 
 ### Test Commands
-| Action | Command |
-|--------|---------|
-| All tests | `pytest tests/ -v` |
+
+| Action        | Command                                   |
+| ------------- | ----------------------------------------- |
+| All tests     | `pytest tests/ -v`                        |
 | Specific test | `pytest tests/test_file.py::test_func -v` |
-| With coverage | `pytest --cov=backend --cov-report=html` |
-| Skip slow | `pytest -m "not slow"` |
+| With coverage | `pytest --cov=backend --cov-report=html`  |
+| Skip slow     | `pytest -m "not slow"`                    |
 
 ---
 
-*This documentation was created as part of the CI/CD setup for TermiVoxed. For questions, contact support@lxusbrain.com*
+_This documentation was created as part of the CI/CD setup for TermiVoxed. For questions, contact support@lxusbrain.com_

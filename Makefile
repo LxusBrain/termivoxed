@@ -1,5 +1,5 @@
 # TermiVoxed Makefile
-# Author: Santhosh T / LxusBrain Technologies
+# Author: Santhosh T / LxusBrain
 #
 # Common development commands for the project
 # Usage: make <command>

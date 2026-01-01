@@ -1,5 +1,5 @@
 # TermiVoxed - Production Dockerfile
-# Author: Santhosh T / LXUSBrain Technologies
+# Author: Santhosh T / LxusBrain
 #
 # Multi-stage build for optimized image size and security
 # This bundles EVERYTHING: Python, FFmpeg, frontend, backend
@@ -57,7 +57,7 @@ FROM python:3.11-slim AS production
 LABEL maintainer="Santhosh T <support@luxusbrain.com>"
 LABEL org.opencontainers.image.title="TermiVoxed"
 LABEL org.opencontainers.image.description="AI Voice-Over Dubbing Studio - By LXUSBrain"
-LABEL org.opencontainers.image.vendor="LXUSBrain Technologies"
+LABEL org.opencontainers.image.vendor="LxusBrain"
 LABEL org.opencontainers.image.version="1.0.0"
 LABEL org.opencontainers.image.url="https://termivoxed.com"
 

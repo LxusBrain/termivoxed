@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # TermiVoxed Release Automation Script
-# Author: Santhosh T / LxusBrain Technologies
+# Author: Santhosh T / LxusBrain
 #
 # Usage: ./scripts/release.sh [major|minor|patch]
 #
@@ -402,7 +402,7 @@ show_banner() {
     echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║                                                            ║${NC}"
     echo -e "${CYAN}║          TermiVoxed Release Automation Script              ║${NC}"
-    echo -e "${CYAN}║          Author: Santhosh T / LxusBrain Technologies       ║${NC}"
+    echo -e "${CYAN}║          Author: Santhosh T / LxusBrain       ║${NC}"
     echo -e "${CYAN}║                                                            ║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""

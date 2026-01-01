@@ -1,5 +1,5 @@
 # Pre-commit Configuration for TermiVoxed
-# Author: Santhosh T / LxusBrain Technologies
+# Author: Santhosh T / LxusBrain
 #
 # Install: pip install pre-commit && pre-commit install
 # Run manually: pre-commit run --all-files
@@ -16,12 +16,12 @@ repos:
       - id: end-of-file-fixer
         exclude: ^(web_ui/frontend/dist|backups|venv|node_modules)/
       - id: check-yaml
-        args: ['--unsafe']
+        args: ["--unsafe"]
       - id: check-json
         exclude: ^(web_ui/frontend/dist|backups|venv|node_modules)/
       - id: check-toml
       - id: check-added-large-files
-        args: ['--maxkb=1000']
+        args: ["--maxkb=1000"]
       - id: check-merge-conflict
       - id: check-case-conflict
       - id: detect-private-key
@@ -37,14 +37,14 @@ repos:
     hooks:
       - id: black
         language_version: python3.11
-        args: ['--line-length=100']
+        args: ["--line-length=100"]
         exclude: ^(venv|backups|web_ui/frontend|node_modules)/
 
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
     hooks:
       - id: isort
-        args: ['--profile=black', '--line-length=100']
+        args: ["--profile=black", "--line-length=100"]
         exclude: ^(venv|backups|web_ui/frontend|node_modules)/
 
   # ============================================================================
@@ -54,7 +54,7 @@ repos:
     rev: 7.0.0
     hooks:
       - id: flake8
-        args: ['--max-line-length=120', '--max-complexity=15']
+        args: ["--max-line-length=120", "--max-complexity=15"]
         exclude: ^(venv|backups|web_ui/frontend|node_modules|tests)/
         additional_dependencies:
           - flake8-bugbear
@@ -67,7 +67,7 @@ repos:
     rev: 1.7.8
     hooks:
       - id: bandit
-        args: ['-ll', '--skip=B101,B104,B311']
+        args: ["-ll", "--skip=B101,B104,B311"]
         exclude: ^(tests|venv|backups|web_ui/frontend|node_modules)/
 
   # ============================================================================
@@ -77,7 +77,7 @@ repos:
     rev: v1.9.0
     hooks:
       - id: mypy
-        args: ['--ignore-missing-imports', '--no-strict-optional']
+        args: ["--ignore-missing-imports", "--no-strict-optional"]
         exclude: ^(tests|venv|backups|web_ui/frontend|node_modules)/
         additional_dependencies:
           - types-requests
@@ -91,7 +91,7 @@ repos:
     rev: v1.4.0
     hooks:
       - id: detect-secrets
-        args: ['--baseline', '.secrets.baseline']
+        args: ["--baseline", ".secrets.baseline"]
         exclude: ^(venv|backups|node_modules|\.git)/
 
   # ============================================================================
@@ -101,7 +101,7 @@ repos:
     rev: v0.39.0
     hooks:
       - id: markdownlint
-        args: ['--fix', '--disable', 'MD013', 'MD033', 'MD041']
+        args: ["--fix", "--disable", "MD013", "MD033", "MD041"]
         exclude: ^(venv|backups|node_modules|CHANGELOG)/
 
   # ============================================================================
@@ -111,7 +111,7 @@ repos:
     rev: v1.35.1
     hooks:
       - id: yamllint
-        args: ['-d', '{extends: relaxed, rules: {line-length: {max: 150}}}']
+        args: ["-d", "{extends: relaxed, rules: {line-length: {max: 150}}}"]
         exclude: ^(venv|backups|node_modules)/
 
   # ============================================================================
@@ -130,8 +130,8 @@ ci:
 
     for more information, see https://pre-commit.ci
   autofix_prs: true
-  autoupdate_branch: ''
-  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_branch: ""
+  autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
   autoupdate_schedule: weekly
-  skip: [mypy]  # Skip mypy in CI (handled by workflow)
+  skip: [mypy] # Skip mypy in CI (handled by workflow)
   submodules: false
