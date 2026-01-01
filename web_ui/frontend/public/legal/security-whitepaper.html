@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Whitepaper - TermiVoxed by LxusBrain</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .no-print { display: none !important; }
+            .page-break { page-break-before: always; }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.7;
+            color: #1a1a1a;
+            background: #f5f5f5;
+            padding: 20px;
+            font-size: 14px;
+        }
+
+        .document {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fff;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+
+        .cover {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            color: #fff;
+            padding: 80px 60px;
+            text-align: center;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .cover h1 {
+            font-size: 42px;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+
+        .cover h1 span {
+            color: #00d4ff;
+        }
+
+        .cover .subtitle {
+            font-size: 20px;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+
+        .cover .meta {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+
+        .cover .badge {
+            display: inline-block;
+            background: rgba(0,212,255,0.2);
+            border: 1px solid #00d4ff;
+            padding: 8px 20px;
+            border-radius: 25px;
+            margin-top: 30px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .content {
+            padding: 50px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #00d4ff;
+        }
+
+        .section-intro {
+            font-size: 15px;
+            color: #555;
+            margin-bottom: 25px;
+            line-height: 1.8;
+        }
+
+        h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin: 25px 0 15px;
+        }
+
+        p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+
+        ul, ol {
+            margin: 15px 0 20px 25px;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+
+        .highlight-box {
+            background: linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%);
+            border: 1px solid #00d4ff;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+
+        .highlight-box h4 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 15px;
+        }
+
+        .warning-box {
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .warning-box h4 {
+            color: #92400e;
+            margin-bottom: 10px;
+        }
+
+        .security-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin: 25px 0;
+        }
+
+        .security-card {
+            background: #f8f9fa;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .security-card h4 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .security-card h4::before {
+            content: "🔒";
+            font-size: 18px;
+        }
+
+        .security-card p {
+            font-size: 13px;
+            color: #555;
+            margin: 0;
+            text-align: left;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 13px;
+        }
+
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 12px 15px;
+            text-align: left;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .compliance-badge {
+            display: inline-block;
+            background: #10b981;
+            color: #fff;
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 2px;
+        }
+
+        .compliance-pending {
+            background: #f59e0b;
+        }
+
+        .toc {
+            background: #f8f9fa;
+            padding: 25px 30px;
+            margin-bottom: 30px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
+
+        .toc h3 {
+            font-size: 16px;
+            margin: 0 0 15px 0;
+            color: #0f172a;
+        }
+
+        .toc ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .toc li {
+            padding: 8px 0;
+            border-bottom: 1px dashed #ddd;
+            font-size: 14px;
+        }
+
+        .toc li:last-child {
+            border-bottom: none;
+        }
+
+        .print-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            color: #fff;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .footer {
+            background: #f8f9fa;
+            padding: 25px 50px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .architecture-diagram {
+            background: #f8f9fa;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 30px;
+            margin: 25px 0;
+            text-align: center;
+        }
+
+        .architecture-diagram pre {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            text-align: left;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .checklist {
+            background: #f0fdf4;
+            border: 1px solid #10b981;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .checklist li {
+            list-style: none;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .checklist li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #10b981;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="document">
+        <!-- Cover Page -->
+        <div class="cover">
+            <h1><span>TermiVoxed</span> Security</h1>
+            <p class="subtitle">Enterprise Security Whitepaper</p>
+            <p class="meta">LxusBrain Technologies | Version 1.0 | January 2026</p>
+            <div class="badge">Confidential - For Enterprise Customers</div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Table of Contents -->
+            <div class="toc">
+                <h3>Contents</h3>
+                <ul>
+                    <li>1. Executive Summary</li>
+                    <li>2. Security Architecture</li>
+                    <li>3. Data Protection & Encryption</li>
+                    <li>4. Authentication & Access Control</li>
+                    <li>5. Infrastructure Security</li>
+                    <li>6. Application Security</li>
+                    <li>7. Compliance & Certifications</li>
+                    <li>8. Incident Response</li>
+                    <li>9. Business Continuity</li>
+                    <li>10. Security FAQ</li>
+                </ul>
+            </div>
+
+            <!-- Executive Summary -->
+            <div class="section">
+                <h2 class="section-title">1. Executive Summary</h2>
+                <p class="section-intro">
+                    TermiVoxed is designed with security as a foundational principle. We understand that
+                    enterprises trust us with their content and data, and we take this responsibility seriously.
+                    This whitepaper provides a comprehensive overview of our security practices, technical
+                    controls, and compliance posture.
+                </p>
+
+                <div class="highlight-box">
+                    <h4>Key Security Highlights</h4>
+                    <ul>
+                        <li><strong>100% Local Processing Option:</strong> Videos can be processed entirely
+                            on your infrastructure without leaving your network</li>
+                        <li><strong>End-to-End Encryption:</strong> AES-256 encryption for data at rest,
+                            TLS 1.2+ for data in transit</li>
+                        <li><strong>GDPR & DPDP Compliant:</strong> Full compliance with international and
+                            Indian data protection regulations</li>
+                        <li><strong>No Data Retention:</strong> Video content is processed and immediately
+                            deleted unless explicitly saved by the user</li>
+                        <li><strong>Enterprise SSO:</strong> SAML-based Single Sign-On integration with your
+                            identity provider</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Security Architecture -->
+            <div class="section page-break">
+                <h2 class="section-title">2. Security Architecture</h2>
+
+                <h3>2.1 Architecture Overview</h3>
+                <p>
+                    TermiVoxed employs a multi-layered security architecture that protects data at every stage
+                    of processing. Our architecture is designed around the principle of defense in depth.
+                </p>
+
+                <div class="architecture-diagram">
+                    <pre>
+┌─────────────────────────────────────────────────────────────────────┐
+│                        CLIENT LAYER                                  │
+├─────────────────────────────────────────────────────────────────────┤
+│  Desktop App (Windows/macOS)    │    Web Application               │
+│  - Local video processing        │    - Browser-based editing       │
+│  - Offline capability            │    - Real-time collaboration     │
+│  - Device-bound licensing        │    - Cloud storage option        │
+└─────────────────────────────────────────────────────────────────────┘
+                              ▼ TLS 1.3 ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      APPLICATION LAYER                               │
+├─────────────────────────────────────────────────────────────────────┤
+│  API Gateway                     │    Authentication Service        │
+│  - Rate limiting                 │    - Firebase Auth               │
+│  - Request validation            │    - JWT tokens                  │
+│  - DDoS protection               │    - SSO/SAML support            │
+└─────────────────────────────────────────────────────────────────────┘
+                              ▼ Encrypted ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                       SERVICE LAYER                                  │
+├─────────────────────────────────────────────────────────────────────┤
+│  TTS Service        │  Export Service    │  AI/LLM Service          │
+│  - Edge-TTS         │  - FFmpeg          │  - Script generation     │
+│  - Coqui (local)    │  - Video encoding  │  - Multiple providers    │
+│  - Voice cloning    │  - Subtitle embed  │  - User-provided keys    │
+└─────────────────────────────────────────────────────────────────────┘
+                              ▼ AES-256 ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                        DATA LAYER                                    │
+├─────────────────────────────────────────────────────────────────────┤
+│  Firebase Firestore  │  Cloud Storage     │  Local Storage          │
+│  - User accounts     │  - Project files   │  - Cached content       │
+│  - Subscriptions     │  - Audio cache     │  - Voice samples        │
+│  - Usage metrics     │  - Export outputs  │  - Offline data         │
+└─────────────────────────────────────────────────────────────────────┘
+                    </pre>
+                </div>
+
+                <h3>2.2 Deployment Options</h3>
+                <div class="security-grid">
+                    <div class="security-card">
+                        <h4>Cloud-Based (SaaS)</h4>
+                        <p>Fully managed cloud deployment with automatic updates, backups, and 99.5% uptime SLA.
+                           Ideal for teams wanting zero infrastructure management.</p>
+                    </div>
+                    <div class="security-card">
+                        <h4>Desktop Application</h4>
+                        <p>Process videos 100% locally on your machine. Videos never leave your computer.
+                           Perfect for air-gapped environments and maximum privacy.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Protection -->
+            <div class="section">
+                <h2 class="section-title">3. Data Protection & Encryption</h2>
+
+                <h3>3.1 Encryption Standards</h3>
+                <table>
+                    <tr>
+                        <th>Data State</th>
+                        <th>Encryption Method</th>
+                        <th>Key Management</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Data in Transit</strong></td>
+                        <td>TLS 1.2 / TLS 1.3</td>
+                        <td>Automatic certificate management via Let's Encrypt</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Data at Rest</strong></td>
+                        <td>AES-256-GCM</td>
+                        <td>Cloud KMS with automatic key rotation</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Database</strong></td>
+                        <td>Firebase default encryption</td>
+                        <td>Google-managed encryption keys</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Backup</strong></td>
+                        <td>AES-256</td>
+                        <td>Separate backup encryption keys</td>
+                    </tr>
+                </table>
+
+                <h3>3.2 Data Classification</h3>
+                <table>
+                    <tr>
+                        <th>Data Type</th>
+                        <th>Classification</th>
+                        <th>Retention</th>
+                        <th>Access</th>
+                    </tr>
+                    <tr>
+                        <td>User credentials</td>
+                        <td>Highly Sensitive</td>
+                        <td>Until account deletion</td>
+                        <td>Auth service only</td>
+                    </tr>
+                    <tr>
+                        <td>Video content</td>
+                        <td>Confidential</td>
+                        <td>User-controlled</td>
+                        <td>Owner only</td>
+                    </tr>
+                    <tr>
+                        <td>Voice samples</td>
+                        <td>Sensitive</td>
+                        <td>User-controlled</td>
+                        <td>Owner only</td>
+                    </tr>
+                    <tr>
+                        <td>Usage metrics</td>
+                        <td>Internal</td>
+                        <td>12 months</td>
+                        <td>Aggregated only</td>
+                    </tr>
+                    <tr>
+                        <td>Transaction records</td>
+                        <td>Confidential</td>
+                        <td>10 years (regulatory)</td>
+                        <td>Finance, Legal</td>
+                    </tr>
+                </table>
+
+                <h3>3.3 Data Residency</h3>
+                <p>
+                    For cloud deployments, data is stored in Google Cloud Platform data centers. Enterprise
+                    customers can specify preferred data residency regions. Currently supported regions:
+                </p>
+                <ul>
+                    <li><strong>Asia-Pacific:</strong> Mumbai (asia-south1), Singapore (asia-southeast1)</li>
+                    <li><strong>North America:</strong> US Central (us-central1)</li>
+                    <li><strong>Europe:</strong> Belgium (europe-west1) - Available upon request</li>
+                </ul>
+            </div>
+
+            <!-- Authentication -->
+            <div class="section page-break">
+                <h2 class="section-title">4. Authentication & Access Control</h2>
+
+                <h3>4.1 Authentication Methods</h3>
+                <div class="security-grid">
+                    <div class="security-card">
+                        <h4>Standard Authentication</h4>
+                        <p>Email/password with secure hashing (bcrypt with cost factor 12). Password requirements:
+                           minimum 8 characters, complexity rules enforced.</p>
+                    </div>
+                    <div class="security-card">
+                        <h4>OAuth 2.0</h4>
+                        <p>Sign in with Google or Microsoft accounts. Reduces password fatigue and leverages
+                           existing enterprise identity infrastructure.</p>
+                    </div>
+                    <div class="security-card">
+                        <h4>SSO/SAML (Enterprise)</h4>
+                        <p>SAML 2.0 integration with enterprise identity providers. Supports Okta, Azure AD,
+                           Google Workspace, and other SAML-compliant IdPs.</p>
+                    </div>
+                    <div class="security-card">
+                        <h4>Device Binding</h4>
+                        <p>Desktop licenses are bound to specific devices using secure device fingerprinting.
+                           Prevents unauthorized license sharing.</p>
+                    </div>
+                </div>
+
+                <h3>4.2 Session Management</h3>
+                <ul>
+                    <li>JWT-based session tokens with configurable expiration (default: 1 hour)</li>
+                    <li>Refresh tokens with 30-day lifetime</li>
+                    <li>Automatic session invalidation on password change</li>
+                    <li>Concurrent session limits per subscription tier</li>
+                    <li>Remote session termination capability</li>
+                </ul>
+
+                <h3>4.3 Role-Based Access Control</h3>
+                <table>
+                    <tr>
+                        <th>Role</th>
+                        <th>Permissions</th>
+                        <th>Use Case</th>
+                    </tr>
+                    <tr>
+                        <td><strong>User</strong></td>
+                        <td>Create/edit own projects, export, manage own settings</td>
+                        <td>Standard team member</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Team Lead</strong></td>
+                        <td>User permissions + view team usage, share projects</td>
+                        <td>Department manager</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Admin</strong></td>
+                        <td>All permissions + manage users, view all projects, billing</td>
+                        <td>IT administrator</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Owner</strong></td>
+                        <td>Admin permissions + manage admins, delete organization</td>
+                        <td>Account owner</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Infrastructure Security -->
+            <div class="section">
+                <h2 class="section-title">5. Infrastructure Security</h2>
+
+                <h3>5.1 Cloud Infrastructure</h3>
+                <p>
+                    TermiVoxed cloud services are hosted on Google Cloud Platform and Firebase, which provide:
+                </p>
+                <div class="checklist">
+                    <ul>
+                        <li>SOC 1, SOC 2, SOC 3 compliance</li>
+                        <li>ISO 27001, ISO 27017, ISO 27018 certifications</li>
+                        <li>Physical security with 24/7 monitoring</li>
+                        <li>Redundant power, cooling, and network connectivity</li>
+                        <li>Regular third-party security audits</li>
+                    </ul>
+                </div>
+
+                <h3>5.2 Network Security</h3>
+                <ul>
+                    <li><strong>Firewall:</strong> Cloud-native firewall rules with default-deny policy</li>
+                    <li><strong>DDoS Protection:</strong> Google Cloud Armor for L3/L4/L7 DDoS mitigation</li>
+                    <li><strong>CDN:</strong> Content delivery through Firebase Hosting CDN</li>
+                    <li><strong>VPN:</strong> Available for Enterprise customers requiring private connectivity</li>
+                </ul>
+
+                <h3>5.3 Monitoring & Logging</h3>
+                <ul>
+                    <li>Centralized logging with Cloud Logging</li>
+                    <li>Real-time alerting for security events</li>
+                    <li>90-day log retention (extended for Enterprise)</li>
+                    <li>Audit logs for administrative actions</li>
+                    <li>Anomaly detection for unusual access patterns</li>
+                </ul>
+            </div>
+
+            <!-- Application Security -->
+            <div class="section page-break">
+                <h2 class="section-title">6. Application Security</h2>
+
+                <h3>6.1 Secure Development Lifecycle</h3>
+                <p>
+                    We follow secure software development practices throughout the development lifecycle:
+                </p>
+                <ul>
+                    <li><strong>Design:</strong> Threat modeling for new features</li>
+                    <li><strong>Development:</strong> Secure coding guidelines, code review requirements</li>
+                    <li><strong>Testing:</strong> Automated security testing in CI/CD pipeline</li>
+                    <li><strong>Deployment:</strong> Staged rollouts with monitoring</li>
+                    <li><strong>Maintenance:</strong> Regular dependency updates, security patches</li>
+                </ul>
+
+                <h3>6.2 OWASP Top 10 Mitigations</h3>
+                <table>
+                    <tr>
+                        <th>Vulnerability</th>
+                        <th>Mitigation</th>
+                    </tr>
+                    <tr>
+                        <td>Injection (SQL, Command)</td>
+                        <td>Parameterized queries, input validation, allowlisting</td>
+                    </tr>
+                    <tr>
+                        <td>Broken Authentication</td>
+                        <td>Firebase Auth, MFA support, secure session management</td>
+                    </tr>
+                    <tr>
+                        <td>Sensitive Data Exposure</td>
+                        <td>Encryption at rest and in transit, data masking</td>
+                    </tr>
+                    <tr>
+                        <td>XML External Entities</td>
+                        <td>JSON-only APIs, no XML parsing</td>
+                    </tr>
+                    <tr>
+                        <td>Broken Access Control</td>
+                        <td>RBAC, project ownership verification, least privilege</td>
+                    </tr>
+                    <tr>
+                        <td>Security Misconfiguration</td>
+                        <td>Infrastructure as code, automated security scanning</td>
+                    </tr>
+                    <tr>
+                        <td>Cross-Site Scripting (XSS)</td>
+                        <td>Content Security Policy, output encoding, React's XSS protection</td>
+                    </tr>
+                    <tr>
+                        <td>Insecure Deserialization</td>
+                        <td>JSON schema validation, no arbitrary object deserialization</td>
+                    </tr>
+                    <tr>
+                        <td>Vulnerable Components</td>
+                        <td>Automated dependency scanning, regular updates</td>
+                    </tr>
+                    <tr>
+                        <td>Insufficient Logging</td>
+                        <td>Comprehensive logging, security event monitoring</td>
+                    </tr>
+                </table>
+
+                <h3>6.3 Desktop Application Security</h3>
+                <ul>
+                    <li><strong>Code Signing:</strong> Ed25519 signed updates and installers</li>
+                    <li><strong>Auto-Update:</strong> Secure update mechanism with signature verification</li>
+                    <li><strong>Sandboxing:</strong> Process isolation for untrusted content</li>
+                    <li><strong>Local Storage:</strong> Encrypted credential storage using OS keychain</li>
+                </ul>
+            </div>
+
+            <!-- Compliance -->
+            <div class="section">
+                <h2 class="section-title">7. Compliance & Certifications</h2>
+
+                <h3>7.1 Current Compliance Status</h3>
+                <p>
+                    <span class="compliance-badge">GDPR Compliant</span>
+                    <span class="compliance-badge">DPDP Act (India) Compliant</span>
+                    <span class="compliance-badge">IT Act 2000 Compliant</span>
+                    <span class="compliance-badge compliance-pending">SOC 2 Type II (Q2 2026)</span>
+                    <span class="compliance-badge compliance-pending">ISO 27001 (Q3 2026)</span>
+                </p>
+
+                <h3>7.2 GDPR Compliance</h3>
+                <p>TermiVoxed is designed to support GDPR compliance:</p>
+                <ul>
+                    <li><strong>Lawful Basis:</strong> Clear consent mechanisms, legitimate interest documentation</li>
+                    <li><strong>Data Minimization:</strong> Only collect data necessary for service provision</li>
+                    <li><strong>Purpose Limitation:</strong> Data used only for stated purposes</li>
+                    <li><strong>Storage Limitation:</strong> Configurable retention policies</li>
+                    <li><strong>Data Subject Rights:</strong> Tools for access, rectification, erasure, portability</li>
+                    <li><strong>Data Processing Agreement:</strong> Standard DPA available for Enterprise customers</li>
+                </ul>
+
+                <h3>7.3 India DPDP Act Compliance</h3>
+                <ul>
+                    <li>Consent-based data collection with clear purpose disclosure</li>
+                    <li>Data principal rights: access, correction, erasure, grievance redressal</li>
+                    <li>Data fiduciary obligations fulfilled</li>
+                    <li>Reasonable security safeguards implemented</li>
+                    <li>Grievance officer designated: info@lxusbrain.com</li>
+                </ul>
+
+                <h3>7.4 Roadmap to SOC 2</h3>
+                <p>
+                    We are actively pursuing SOC 2 Type II certification with expected completion in Q2 2026.
+                    Our preparation includes:
+                </p>
+                <ul>
+                    <li>Formal security policies and procedures documentation</li>
+                    <li>Enhanced access controls and monitoring</li>
+                    <li>Third-party penetration testing</li>
+                    <li>Vendor security assessments</li>
+                    <li>Security awareness training program</li>
+                </ul>
+            </div>
+
+            <!-- Incident Response -->
+            <div class="section page-break">
+                <h2 class="section-title">8. Incident Response</h2>
+
+                <h3>8.1 Incident Response Process</h3>
+                <table>
+                    <tr>
+                        <th>Phase</th>
+                        <th>Actions</th>
+                        <th>Timeline</th>
+                    </tr>
+                    <tr>
+                        <td><strong>1. Detection</strong></td>
+                        <td>Automated monitoring, user reports, security alerts</td>
+                        <td>Continuous</td>
+                    </tr>
+                    <tr>
+                        <td><strong>2. Triage</strong></td>
+                        <td>Assess severity, assign priority, notify response team</td>
+                        <td>Within 1 hour</td>
+                    </tr>
+                    <tr>
+                        <td><strong>3. Containment</strong></td>
+                        <td>Isolate affected systems, preserve evidence</td>
+                        <td>Within 4 hours</td>
+                    </tr>
+                    <tr>
+                        <td><strong>4. Investigation</strong></td>
+                        <td>Root cause analysis, impact assessment</td>
+                        <td>Within 24 hours</td>
+                    </tr>
+                    <tr>
+                        <td><strong>5. Notification</strong></td>
+                        <td>Notify affected customers, regulatory bodies if required</td>
+                        <td>Within 48 hours</td>
+                    </tr>
+                    <tr>
+                        <td><strong>6. Recovery</strong></td>
+                        <td>Restore services, implement fixes</td>
+                        <td>As appropriate</td>
+                    </tr>
+                    <tr>
+                        <td><strong>7. Post-Mortem</strong></td>
+                        <td>Document lessons learned, update procedures</td>
+                        <td>Within 7 days</td>
+                    </tr>
+                </table>
+
+                <h3>8.2 Severity Classification</h3>
+                <table>
+                    <tr>
+                        <th>Severity</th>
+                        <th>Definition</th>
+                        <th>Response Time</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Critical (P1)</strong></td>
+                        <td>Active data breach, service unavailable, data loss</td>
+                        <td>Immediate (24/7)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>High (P2)</strong></td>
+                        <td>Potential breach, degraded service, security vulnerability</td>
+                        <td>4 hours</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Medium (P3)</strong></td>
+                        <td>Security concern, policy violation, minor vulnerability</td>
+                        <td>24 hours</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Low (P4)</strong></td>
+                        <td>Security improvement, informational finding</td>
+                        <td>72 hours</td>
+                    </tr>
+                </table>
+
+                <h3>8.3 Customer Notification</h3>
+                <p>
+                    In the event of a security incident affecting customer data, we will:
+                </p>
+                <ul>
+                    <li>Notify affected customers within 48 hours of confirmed breach</li>
+                    <li>Provide details of what data was affected</li>
+                    <li>Explain remediation steps taken</li>
+                    <li>Offer guidance on protective measures</li>
+                    <li>Provide regular updates until resolution</li>
+                </ul>
+            </div>
+
+            <!-- Business Continuity -->
+            <div class="section">
+                <h2 class="section-title">9. Business Continuity</h2>
+
+                <h3>9.1 Service Level Agreement</h3>
+                <table>
+                    <tr>
+                        <th>Tier</th>
+                        <th>Uptime SLA</th>
+                        <th>Support Response</th>
+                    </tr>
+                    <tr>
+                        <td>Standard (Pro)</td>
+                        <td>99.0%</td>
+                        <td>24 hours</td>
+                    </tr>
+                    <tr>
+                        <td>Enterprise</td>
+                        <td>99.5%</td>
+                        <td>4 hours</td>
+                    </tr>
+                    <tr>
+                        <td>Enterprise + Extended SLA</td>
+                        <td>99.9%</td>
+                        <td>1 hour</td>
+                    </tr>
+                </table>
+
+                <h3>9.2 Backup & Recovery</h3>
+                <ul>
+                    <li><strong>Database Backups:</strong> Automated daily backups with 30-day retention</li>
+                    <li><strong>Point-in-Time Recovery:</strong> Available for the last 7 days</li>
+                    <li><strong>Geographic Redundancy:</strong> Data replicated across availability zones</li>
+                    <li><strong>Recovery Time Objective (RTO):</strong> 4 hours for cloud services</li>
+                    <li><strong>Recovery Point Objective (RPO):</strong> 1 hour maximum data loss</li>
+                </ul>
+
+                <h3>9.3 Offline Capability</h3>
+                <p>
+                    The TermiVoxed desktop application provides a 72-hour offline grace period, allowing
+                    continued operation during network outages. Local projects and cached data remain
+                    accessible, with automatic sync when connectivity is restored.
+                </p>
+            </div>
+
+            <!-- FAQ -->
+            <div class="section page-break">
+                <h2 class="section-title">10. Security FAQ</h2>
+
+                <div class="highlight-box">
+                    <h4>Q: Where is my video content stored?</h4>
+                    <p>
+                        <strong>Desktop App:</strong> Videos are processed locally on your machine and never
+                        uploaded to our servers. Output files are saved to your specified local directory.<br><br>
+                        <strong>Web App:</strong> Videos are temporarily uploaded for processing and deleted
+                        within 24 hours after export completion. You can also choose to save projects to
+                        cloud storage for future editing.
+                    </p>
+                </div>
+
+                <div class="highlight-box">
+                    <h4>Q: Who can access my voice cloning samples?</h4>
+                    <p>
+                        Voice samples are encrypted and accessible only by your account. They are used solely
+                        for generating voice clones within your projects. We do not use voice samples for
+                        training our models or any other purpose. Samples can be deleted at any time from
+                        your account settings.
+                    </p>
+                </div>
+
+                <div class="highlight-box">
+                    <h4>Q: Do you use my content to train AI models?</h4>
+                    <p>
+                        <strong>No.</strong> We do not use customer content (videos, audio, voice samples, or
+                        scripts) to train our AI models. Your content is used solely for providing the service
+                        you requested.
+                    </p>
+                </div>
+
+                <div class="highlight-box">
+                    <h4>Q: How do you handle third-party AI services (like OpenAI)?</h4>
+                    <p>
+                        If you use AI script generation with third-party providers (OpenAI, Anthropic, etc.),
+                        your text prompts are sent to those providers under their terms of service. You can:
+                        (1) Use local AI models via Ollama with no external transmission, or
+                        (2) Provide your own API keys, giving you control over the data relationship.
+                    </p>
+                </div>
+
+                <div class="highlight-box">
+                    <h4>Q: Can you provide a penetration test report?</h4>
+                    <p>
+                        We conduct annual third-party penetration testing. A summary report is available to
+                        Enterprise customers under NDA. Contact info@lxusbrain.com to request access.
+                    </p>
+                </div>
+
+                <div class="highlight-box">
+                    <h4>Q: Do you have a bug bounty program?</h4>
+                    <p>
+                        Yes. We welcome responsible security research. Please report vulnerabilities to
+                        security@lxusbrain.com. We commit to acknowledging reports within 48 hours and
+                        providing updates on remediation progress.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>LxusBrain Technologies</strong></p>
+            <p>Aravind Santhosh Illam, Gudiyattam 632602, Tamil Nadu 632602, India</p>
+            <p>Security Contact: info@lxusbrain.com | Phone: +91 7550057333</p>
+            <p style="margin-top: 15px;">
+                <em>This document is confidential and intended for enterprise evaluation purposes.
+                Last updated: January 2026. Version 1.0.</em>
+            </p>
+        </div>
+    </div>
+
+    <!-- Print Button -->
+    <button class="print-btn no-print" onclick="window.print()">
+        Print / Save as PDF
+    </button>
+</body>
+</html>

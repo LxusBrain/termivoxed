@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Processing Agreement - LxusBrain Technologies</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .no-print { display: none !important; }
+            .page-break { page-break-before: always; }
+        }
+
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            line-height: 1.8;
+            color: #1a1a1a;
+            background: #f5f5f5;
+            padding: 20px;
+            font-size: 14px;
+        }
+
+        .document {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+            padding: 60px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 2px solid #333;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+
+        .header .subtitle {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .header .version {
+            font-size: 12px;
+            color: #999;
+            margin-top: 10px;
+        }
+
+        .article {
+            margin-bottom: 30px;
+        }
+
+        .article-title {
+            font-size: 16px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+            color: #1a1a1a;
+        }
+
+        .article-number {
+            font-weight: 700;
+            margin-right: 10px;
+        }
+
+        .section {
+            margin-bottom: 15px;
+            padding-left: 20px;
+        }
+
+        .section-number {
+            font-weight: 600;
+        }
+
+        .subsection {
+            margin: 10px 0 10px 25px;
+        }
+
+        .subsection-letter {
+            font-weight: 500;
+        }
+
+        p {
+            text-align: justify;
+            margin-bottom: 12px;
+        }
+
+        ul, ol {
+            margin: 10px 0 15px 40px;
+        }
+
+        li {
+            margin-bottom: 8px;
+            text-align: justify;
+        }
+
+        .definition {
+            margin-bottom: 10px;
+        }
+
+        .definition strong {
+            color: #1a1a1a;
+        }
+
+        .highlight-box {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 15px 20px;
+            margin: 15px 0;
+            font-size: 13px;
+        }
+
+        .signature-section {
+            margin-top: 60px;
+            page-break-inside: avoid;
+        }
+
+        .signature-block {
+            display: flex;
+            justify-content: space-between;
+            gap: 60px;
+            margin-top: 40px;
+        }
+
+        .signature-party {
+            flex: 1;
+        }
+
+        .signature-party h4 {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+        }
+
+        .signature-line {
+            border-bottom: 1px solid #333;
+            height: 40px;
+            margin-bottom: 5px;
+        }
+
+        .signature-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .annex {
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 2px solid #333;
+        }
+
+        .annex-title {
+            font-size: 18px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 13px;
+        }
+
+        th, td {
+            border: 1px solid #333;
+            padding: 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            background: #f0f0f0;
+            font-weight: 600;
+        }
+
+        .print-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #1a1a1a;
+            color: #fff;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .editable {
+            background: #fffef0;
+            border-bottom: 1px dashed #999;
+            padding: 0 5px;
+        }
+
+        .toc {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            margin-bottom: 30px;
+            border: 1px solid #ddd;
+        }
+
+        .toc h3 {
+            font-size: 14px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+
+        .toc ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .toc li {
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        .toc li span {
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="document">
+        <!-- Header -->
+        <div class="header">
+            <h1>Data Processing Agreement</h1>
+            <p class="subtitle">Between LxusBrain Technologies ("Processor") and Customer ("Controller")</p>
+            <p class="version">Version 1.0 | Effective Date: January 2026</p>
+        </div>
+
+        <!-- Table of Contents -->
+        <div class="toc">
+            <h3>Table of Contents</h3>
+            <ul>
+                <li>Article 1: Definitions <span>.......... 1</span></li>
+                <li>Article 2: Scope and Purpose <span>.......... 2</span></li>
+                <li>Article 3: Controller Obligations <span>.......... 2</span></li>
+                <li>Article 4: Processor Obligations <span>.......... 3</span></li>
+                <li>Article 5: Sub-Processors <span>.......... 4</span></li>
+                <li>Article 6: Data Subject Rights <span>.......... 5</span></li>
+                <li>Article 7: Security Measures <span>.......... 5</span></li>
+                <li>Article 8: Data Breach Notification <span>.......... 6</span></li>
+                <li>Article 9: Data Retention and Deletion <span>.......... 6</span></li>
+                <li>Article 10: International Data Transfers <span>.......... 7</span></li>
+                <li>Article 11: Audit Rights <span>.......... 7</span></li>
+                <li>Article 12: Liability <span>.......... 8</span></li>
+                <li>Article 13: Duration and Termination <span>.......... 8</span></li>
+                <li>Annex A: Processing Details <span>.......... 9</span></li>
+                <li>Annex B: Security Measures <span>.......... 10</span></li>
+                <li>Annex C: Sub-Processors <span>.......... 11</span></li>
+            </ul>
+        </div>
+
+        <!-- Preamble -->
+        <div class="article">
+            <p>
+                This Data Processing Agreement ("DPA") is entered into between:
+            </p>
+            <p>
+                <strong>LxusBrain Technologies</strong>, a company registered in India with its registered office
+                at Aravind Santhosh Illam, Gudiyattam 632602, Gudiyattam South, Tamil Nadu 632602, India
+                (hereinafter referred to as the "Processor" or "LxusBrain")
+            </p>
+            <p>AND</p>
+            <p>
+                <strong class="editable" contenteditable="true">[Customer Company Name]</strong>, a company registered
+                in <span class="editable" contenteditable="true">[Country]</span> with its registered office at
+                <span class="editable" contenteditable="true">[Customer Address]</span>
+                (hereinafter referred to as the "Controller" or "Customer")
+            </p>
+            <p>
+                Together referred to as the "Parties" and individually as a "Party".
+            </p>
+            <p>
+                <strong>WHEREAS</strong> the Controller has entered into a service agreement with the Processor
+                for the provision of TermiVoxed services (the "Services"), which may involve the processing of
+                personal data; and
+            </p>
+            <p>
+                <strong>WHEREAS</strong> the Parties wish to ensure compliance with applicable data protection
+                laws, including the General Data Protection Regulation (GDPR), the Information Technology Act
+                2000, and the Digital Personal Data Protection Act 2023 (India);
+            </p>
+            <p>
+                <strong>NOW THEREFORE</strong>, the Parties agree as follows:
+            </p>
+        </div>
+
+        <!-- Article 1: Definitions -->
+        <div class="article">
+            <h2 class="article-title"><span class="article-number">Article 1:</span> Definitions</h2>
+
+            <div class="section">
+                <p class="section-number">1.1</p>
+                <p>For the purposes of this DPA, the following terms shall have the meanings set out below:</p>
+
+                <div class="definition">
+                    <strong>"Personal Data"</strong> means any information relating to an identified or identifiable
+                    natural person ('data subject'); an identifiable natural person is one who can be identified,
+                    directly or indirectly, in particular by reference to an identifier such as a name, an
+                    identification number, location data, an online identifier, or to one or more factors specific
+                    to the physical, physiological, genetic, mental, economic, cultural, or social identity of that
+                    natural person.
+                </div>
+
+                <div class="definition">
+                    <strong>"Processing"</strong> means any operation or set of operations which is performed on
+                    Personal Data or on sets of Personal Data, whether or not by automated means, such as collection,
+                    recording, organisation, structuring, storage, adaptation or alteration, retrieval, consultation,
+                    use, disclosure by transmission, dissemination or otherwise making available, alignment or
+                    combination, restriction, erasure, or destruction.
+                </div>
+
+                <div class="definition">
+                    <strong>"Data Controller"</strong> means the natural or legal person, public authority, agency,
+                    or other body which, alone or jointly with others, determines the purposes and means of the
+                    Processing of Personal Data.
+                </div>
+
+                <div class="definition">
+                    <strong>"Data Processor"</strong> means a natural or legal person, public authority, agency,
+                    or other body which processes Personal Data on behalf of the Data Controller.
+                </div>
+
+                <div class="definition">
+                    <strong>"Sub-Processor"</strong> means any third party engaged by the Processor to carry out
+                    specific Processing activities on behalf of the Controller.
+                </div>
+
+                <div class="definition">
+                    <strong>"Data Subject"</strong> means an identified or identifiable natural person whose
+                    Personal Data is being Processed.
+                </div>
+
+                <div class="definition">
+                    <strong>"Personal Data Breach"</strong> means a breach of security leading to the accidental
+                    or unlawful destruction, loss, alteration, unauthorised disclosure of, or access to, Personal
+                    Data transmitted, stored, or otherwise processed.
+                </div>
+
+                <div class="definition">
+                    <strong>"Services"</strong> means the TermiVoxed AI voice-over and video dubbing services
+                    provided by the Processor to the Controller under the applicable service agreement.
+                </div>
+
+                <div class="definition">
+                    <strong>"Applicable Data Protection Laws"</strong> means all laws and regulations applicable
+                    to the Processing of Personal Data, including but not limited to the GDPR, the Information
+                    Technology Act 2000 (India), the Digital Personal Data Protection Act 2023 (India), and any
+                    other applicable national or regional data protection legislation.
+                </div>
+            </div>
+        </div>
+
+        <!-- Article 2: Scope and Purpose -->
+        <div class="article page-break">
+            <h2 class="article-title"><span class="article-number">Article 2:</span> Scope and Purpose</h2>
+
+            <div class="section">
+                <p class="section-number">2.1</p>
+                <p>
+                    This DPA applies to all Processing of Personal Data carried out by the Processor on behalf
+                    of the Controller in connection with the provision of the Services.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">2.2</p>
+                <p>
+                    The details of the Processing, including the nature and purpose of Processing, type of
+                    Personal Data, and categories of Data Subjects, are set out in Annex A to this DPA.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">2.3</p>
+                <p>
+                    This DPA shall apply for the duration of the service agreement between the Parties and
+                    shall continue in effect until all Personal Data has been returned or deleted in accordance
+                    with Article 9.
+                </p>
+            </div>
+        </div>
+
+        <!-- Article 3: Controller Obligations -->
+        <div class="article">
+            <h2 class="article-title"><span class="article-number">Article 3:</span> Controller Obligations</h2>
+
+            <div class="section">
+                <p class="section-number">3.1</p>
+                <p>The Controller warrants and represents that:</p>
+                <ul>
+                    <li>It has obtained all necessary consents and authorisations required under Applicable Data
+                        Protection Laws for the Processing of Personal Data by the Processor;</li>
+                    <li>It has provided adequate notice to Data Subjects regarding the Processing of their Personal
+                        Data, including the engagement of the Processor;</li>
+                    <li>Its instructions to the Processor comply with all Applicable Data Protection Laws;</li>
+                    <li>It has implemented appropriate technical and organisational measures to ensure the security
+                        of Personal Data prior to transmission to the Processor.</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <p class="section-number">3.2</p>
+                <p>
+                    The Controller shall promptly notify the Processor if it becomes aware of any circumstances
+                    that may affect the Processor's ability to process Personal Data in accordance with this DPA.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">3.3</p>
+                <p>
+                    The Controller shall be responsible for the accuracy, quality, and legality of the Personal
+                    Data provided to the Processor and the means by which it was obtained.
+                </p>
+            </div>
+        </div>
+
+        <!-- Article 4: Processor Obligations -->
+        <div class="article">
+            <h2 class="article-title"><span class="article-number">Article 4:</span> Processor Obligations</h2>
+
+            <div class="section">
+                <p class="section-number">4.1</p>
+                <p>The Processor shall:</p>
+                <ul>
+                    <li>Process Personal Data only on documented instructions from the Controller, including with
+                        regard to transfers of Personal Data to a third country, unless required to do so by law;</li>
+                    <li>Ensure that persons authorised to process Personal Data have committed themselves to
+                        confidentiality or are under an appropriate statutory obligation of confidentiality;</li>
+                    <li>Implement appropriate technical and organisational measures to ensure a level of security
+                        appropriate to the risk, as detailed in Annex B;</li>
+                    <li>Respect the conditions for engaging Sub-Processors as set out in Article 5;</li>
+                    <li>Assist the Controller in ensuring compliance with obligations related to security of
+                        processing, notification of breaches, impact assessments, and prior consultations;</li>
+                    <li>At the choice of the Controller, delete or return all Personal Data after the end of the
+                        provision of Services, unless storage is required by law;</li>
+                    <li>Make available to the Controller all information necessary to demonstrate compliance with
+                        this DPA and allow for and contribute to audits conducted by the Controller or an auditor
+                        mandated by the Controller.</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <p class="section-number">4.2</p>
+                <p>
+                    The Processor shall immediately inform the Controller if, in its opinion, an instruction
+                    infringes Applicable Data Protection Laws.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">4.3</p>
+                <p>
+                    The Processor shall maintain records of all categories of Processing activities carried out
+                    on behalf of the Controller as required by Applicable Data Protection Laws.
+                </p>
+            </div>
+        </div>
+
+        <!-- Article 5: Sub-Processors -->
+        <div class="article page-break">
+            <h2 class="article-title"><span class="article-number">Article 5:</span> Sub-Processors</h2>
+
+            <div class="section">
+                <p class="section-number">5.1</p>
+                <p>
+                    The Controller provides general authorisation for the Processor to engage Sub-Processors
+                    for the Processing of Personal Data, subject to the conditions set out in this Article.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">5.2</p>
+                <p>
+                    The Processor shall maintain an up-to-date list of Sub-Processors, as set out in Annex C,
+                    and shall provide this list to the Controller upon request.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">5.3</p>
+                <p>
+                    The Processor shall inform the Controller of any intended changes concerning the addition
+                    or replacement of Sub-Processors at least 30 days in advance, giving the Controller the
+                    opportunity to object to such changes.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">5.4</p>
+                <p>
+                    If the Controller objects to a new Sub-Processor on reasonable grounds relating to data
+                    protection, the Parties shall negotiate in good faith to find a mutually acceptable solution.
+                    If no solution is found, the Controller may terminate the affected Services.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">5.5</p>
+                <p>
+                    The Processor shall impose data protection obligations on any Sub-Processor that are no less
+                    protective than those in this DPA and shall remain liable for the Sub-Processor's compliance.
+                </p>
+            </div>
+        </div>
+
+        <!-- Article 6: Data Subject Rights -->
+        <div class="article">
+            <h2 class="article-title"><span class="article-number">Article 6:</span> Data Subject Rights</h2>
+
+            <div class="section">
+                <p class="section-number">6.1</p>
+                <p>
+                    The Processor shall, taking into account the nature of the Processing, assist the Controller
+                    by appropriate technical and organisational measures, insofar as possible, for the fulfilment
+                    of the Controller's obligation to respond to requests from Data Subjects exercising their
+                    rights under Applicable Data Protection Laws, including:
+                </p>
+                <ul>
+                    <li>Right of access</li>
+                    <li>Right to rectification</li>
+                    <li>Right to erasure ("right to be forgotten")</li>
+                    <li>Right to restriction of Processing</li>
+                    <li>Right to data portability</li>
+                    <li>Right to object to Processing</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <p class="section-number">6.2</p>
+                <p>
+                    If the Processor receives a request from a Data Subject regarding their Personal Data, the
+                    Processor shall promptly notify the Controller and shall not respond to the request directly
+                    unless authorised to do so by the Controller.
+                </p>
+            </div>
+        </div>
+
+        <!-- Article 7: Security Measures -->
+        <div class="article">
+            <h2 class="article-title"><span class="article-number">Article 7:</span> Security Measures</h2>
+
+            <div class="section">
+                <p class="section-number">7.1</p>
+                <p>
+                    The Processor shall implement and maintain appropriate technical and organisational measures
+                    to protect Personal Data against accidental or unlawful destruction, loss, alteration,
+                    unauthorised disclosure, or access. These measures are detailed in Annex B.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">7.2</p>
+                <p>
+                    The security measures shall include, at a minimum:
+                </p>
+                <ul>
+                    <li>Encryption of Personal Data in transit and at rest</li>
+                    <li>Access controls and authentication mechanisms</li>
+                    <li>Regular testing and assessment of security measures</li>
+                    <li>Staff training on data protection and security</li>
+                    <li>Incident response and disaster recovery procedures</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <p class="section-number">7.3</p>
+                <p>
+                    The Processor shall regularly review and update security measures to ensure their continued
+                    effectiveness and compliance with industry standards.
+                </p>
+            </div>
+        </div>
+
+        <!-- Article 8: Data Breach Notification -->
+        <div class="article">
+            <h2 class="article-title"><span class="article-number">Article 8:</span> Data Breach Notification</h2>
+
+            <div class="section">
+                <p class="section-number">8.1</p>
+                <p>
+                    The Processor shall notify the Controller without undue delay, and in any event within
+                    48 hours, after becoming aware of a Personal Data Breach affecting the Controller's data.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">8.2</p>
+                <p>
+                    The notification shall include:
+                </p>
+                <ul>
+                    <li>A description of the nature of the breach, including the categories and approximate
+                        number of Data Subjects and records concerned;</li>
+                    <li>The name and contact details of the Processor's data protection contact;</li>
+                    <li>A description of the likely consequences of the breach;</li>
+                    <li>A description of the measures taken or proposed to address the breach.</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <p class="section-number">8.3</p>
+                <p>
+                    The Processor shall cooperate with the Controller and take reasonable steps to assist in
+                    the investigation, mitigation, and remediation of any Personal Data Breach.
+                </p>
+            </div>
+        </div>
+
+        <!-- Article 9: Data Retention and Deletion -->
+        <div class="article page-break">
+            <h2 class="article-title"><span class="article-number">Article 9:</span> Data Retention and Deletion</h2>
+
+            <div class="section">
+                <p class="section-number">9.1</p>
+                <p>
+                    Upon termination of the Services or upon the Controller's request, the Processor shall, at
+                    the Controller's choice:
+                </p>
+                <ul>
+                    <li>Return all Personal Data to the Controller in a commonly used, machine-readable format; or</li>
+                    <li>Securely delete all Personal Data and certify such deletion in writing.</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <p class="section-number">9.2</p>
+                <p>
+                    The Processor may retain Personal Data to the extent required by Applicable Data Protection
+                    Laws, provided that the Processor ensures the confidentiality of the retained data and
+                    processes it only for the purposes required by law.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">9.3</p>
+                <p>
+                    The Processor shall complete the deletion or return of data within 30 days of termination
+                    or the Controller's request, unless a longer period is agreed upon by the Parties.
+                </p>
+            </div>
+        </div>
+
+        <!-- Article 10: International Data Transfers -->
+        <div class="article">
+            <h2 class="article-title"><span class="article-number">Article 10:</span> International Data Transfers</h2>
+
+            <div class="section">
+                <p class="section-number">10.1</p>
+                <p>
+                    The Processor shall not transfer Personal Data to a country outside the European Economic
+                    Area (EEA) or India unless appropriate safeguards are in place as required by Applicable
+                    Data Protection Laws.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">10.2</p>
+                <p>
+                    Where transfers to third countries are necessary for the provision of Services, the
+                    Processor shall ensure compliance through:
+                </p>
+                <ul>
+                    <li>Transfer to countries with an adequacy decision;</li>
+                    <li>Standard Contractual Clauses approved by the European Commission;</li>
+                    <li>Other legally approved transfer mechanisms.</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <p class="section-number">10.3</p>
+                <p>
+                    The Processor currently processes data primarily within India. Sub-Processors may be
+                    located in other jurisdictions as detailed in Annex C.
+                </p>
+            </div>
+        </div>
+
+        <!-- Article 11: Audit Rights -->
+        <div class="article">
+            <h2 class="article-title"><span class="article-number">Article 11:</span> Audit Rights</h2>
+
+            <div class="section">
+                <p class="section-number">11.1</p>
+                <p>
+                    The Processor shall make available to the Controller all information necessary to demonstrate
+                    compliance with this DPA and Applicable Data Protection Laws.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">11.2</p>
+                <p>
+                    The Controller may conduct audits of the Processor's data processing activities, either
+                    directly or through an independent third-party auditor, subject to:
+                </p>
+                <ul>
+                    <li>Reasonable advance notice of at least 30 days;</li>
+                    <li>Audits being conducted during normal business hours;</li>
+                    <li>The auditor signing a confidentiality agreement;</li>
+                    <li>Audits not unreasonably interfering with the Processor's operations.</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <p class="section-number">11.3</p>
+                <p>
+                    The Controller shall bear the costs of any audit unless the audit reveals material
+                    non-compliance with this DPA, in which case the Processor shall bear the reasonable costs.
+                </p>
+            </div>
+        </div>
+
+        <!-- Article 12: Liability -->
+        <div class="article">
+            <h2 class="article-title"><span class="article-number">Article 12:</span> Liability</h2>
+
+            <div class="section">
+                <p class="section-number">12.1</p>
+                <p>
+                    Each Party shall be liable for any damage caused by Processing that infringes Applicable
+                    Data Protection Laws or this DPA.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">12.2</p>
+                <p>
+                    The Processor shall be liable for damage caused by Processing only where it has not
+                    complied with obligations specifically directed to Processors or where it has acted
+                    outside or contrary to lawful instructions of the Controller.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">12.3</p>
+                <p>
+                    The liability provisions of the underlying service agreement shall apply to this DPA,
+                    except where Applicable Data Protection Laws require otherwise.
+                </p>
+            </div>
+        </div>
+
+        <!-- Article 13: Duration and Termination -->
+        <div class="article">
+            <h2 class="article-title"><span class="article-number">Article 13:</span> Duration and Termination</h2>
+
+            <div class="section">
+                <p class="section-number">13.1</p>
+                <p>
+                    This DPA shall come into effect on the date of the last signature below and shall remain
+                    in effect for the duration of the service agreement between the Parties.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">13.2</p>
+                <p>
+                    The obligations under this DPA shall survive termination of the service agreement to the
+                    extent necessary to fulfil the purposes set out herein, including the obligation to delete
+                    or return Personal Data.
+                </p>
+            </div>
+
+            <div class="section">
+                <p class="section-number">13.3</p>
+                <p>
+                    This DPA shall be governed by and construed in accordance with the laws of India.
+                    Any disputes arising from this DPA shall be subject to the exclusive jurisdiction of
+                    the courts of Tamil Nadu, India.
+                </p>
+            </div>
+        </div>
+
+        <!-- Signature Section -->
+        <div class="signature-section page-break">
+            <p>
+                <strong>IN WITNESS WHEREOF</strong>, the Parties have executed this Data Processing Agreement
+                as of the date last written below.
+            </p>
+
+            <div class="signature-block">
+                <div class="signature-party">
+                    <h4>For the Controller</h4>
+                    <div class="signature-line"></div>
+                    <p class="signature-label">Signature</p>
+                    <div class="signature-line"></div>
+                    <p class="signature-label">Name: <span class="editable" contenteditable="true">[Authorized Signatory Name]</span></p>
+                    <div class="signature-line"></div>
+                    <p class="signature-label">Title: <span class="editable" contenteditable="true">[Title]</span></p>
+                    <div class="signature-line"></div>
+                    <p class="signature-label">Date: <span class="editable" contenteditable="true">[Date]</span></p>
+                </div>
+
+                <div class="signature-party">
+                    <h4>For the Processor</h4>
+                    <div class="signature-line"></div>
+                    <p class="signature-label">Signature</p>
+                    <div class="signature-line"></div>
+                    <p class="signature-label">Name: Aravind Santhosh</p>
+                    <div class="signature-line"></div>
+                    <p class="signature-label">Title: Founder, LxusBrain Technologies</p>
+                    <div class="signature-line"></div>
+                    <p class="signature-label">Date: <span class="editable" contenteditable="true">[Date]</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Annex A -->
+        <div class="annex page-break">
+            <h2 class="annex-title">Annex A: Details of Processing</h2>
+
+            <table>
+                <tr>
+                    <th width="30%">Category</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><strong>Nature and Purpose of Processing</strong></td>
+                    <td>
+                        Processing of Personal Data for the provision of TermiVoxed AI voice-over and video
+                        dubbing services, including user account management, subscription management, content
+                        processing, and customer support.
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Duration of Processing</strong></td>
+                    <td>
+                        For the duration of the service agreement, plus any retention period required by law
+                        or as specified in Article 9.
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Categories of Data Subjects</strong></td>
+                    <td>
+                        <ul>
+                            <li>Controller's employees and contractors using the Services</li>
+                            <li>End users whose data appears in processed content</li>
+                            <li>Account administrators</li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Types of Personal Data</strong></td>
+                    <td>
+                        <ul>
+                            <li>Account information: Name, email address, phone number</li>
+                            <li>Authentication data: Login credentials, device identifiers</li>
+                            <li>Usage data: IP address, session logs, feature usage</li>
+                            <li>Content data: Audio recordings, voice samples, video content</li>
+                            <li>Payment data: Transaction records (card details handled by Razorpay)</li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Special Categories of Data</strong></td>
+                    <td>
+                        No special categories of Personal Data are processed. Voice samples and biometric
+                        voice data are processed only for service functionality and are not used for
+                        identification purposes.
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Annex B -->
+        <div class="annex">
+            <h2 class="annex-title">Annex B: Technical and Organisational Security Measures</h2>
+
+            <table>
+                <tr>
+                    <th width="30%">Security Domain</th>
+                    <th>Measures Implemented</th>
+                </tr>
+                <tr>
+                    <td><strong>Encryption</strong></td>
+                    <td>
+                        <ul>
+                            <li>TLS 1.2+ for all data in transit</li>
+                            <li>AES-256 encryption for data at rest</li>
+                            <li>Encrypted database connections</li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Access Control</strong></td>
+                    <td>
+                        <ul>
+                            <li>Role-based access control (RBAC)</li>
+                            <li>Multi-factor authentication for administrative access</li>
+                            <li>Unique user credentials for all personnel</li>
+                            <li>Regular access reviews and revocation</li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Network Security</strong></td>
+                    <td>
+                        <ul>
+                            <li>Firewall protection</li>
+                            <li>Intrusion detection and prevention</li>
+                            <li>DDoS protection</li>
+                            <li>Network segmentation</li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Application Security</strong></td>
+                    <td>
+                        <ul>
+                            <li>Secure software development lifecycle</li>
+                            <li>Regular vulnerability assessments</li>
+                            <li>Input validation and output encoding</li>
+                            <li>Protection against OWASP Top 10 vulnerabilities</li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Physical Security</strong></td>
+                    <td>
+                        <ul>
+                            <li>Cloud infrastructure hosted in secure data centres</li>
+                            <li>Provider certifications (ISO 27001, SOC 2)</li>
+                            <li>Environmental controls (fire, flood protection)</li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Operational Security</strong></td>
+                    <td>
+                        <ul>
+                            <li>Regular security training for staff</li>
+                            <li>Confidentiality agreements with all personnel</li>
+                            <li>Incident response procedures</li>
+                            <li>Backup and disaster recovery plans</li>
+                        </ul>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Annex C -->
+        <div class="annex">
+            <h2 class="annex-title">Annex C: List of Sub-Processors</h2>
+
+            <table>
+                <tr>
+                    <th>Sub-Processor</th>
+                    <th>Purpose</th>
+                    <th>Location</th>
+                    <th>Data Processed</th>
+                </tr>
+                <tr>
+                    <td><strong>Google Firebase</strong></td>
+                    <td>Authentication, hosting, cloud functions</td>
+                    <td>United States</td>
+                    <td>Account data, authentication tokens</td>
+                </tr>
+                <tr>
+                    <td><strong>Razorpay</strong></td>
+                    <td>Payment processing</td>
+                    <td>India</td>
+                    <td>Payment transaction data</td>
+                </tr>
+                <tr>
+                    <td><strong>Microsoft Azure</strong></td>
+                    <td>Edge-TTS voice synthesis</td>
+                    <td>Various (user-selected region)</td>
+                    <td>Text content for voice synthesis</td>
+                </tr>
+                <tr>
+                    <td><strong>Google Cloud Platform</strong></td>
+                    <td>Cloud infrastructure, storage</td>
+                    <td>User-selected region</td>
+                    <td>Content storage, processing</td>
+                </tr>
+            </table>
+
+            <div class="highlight-box" style="margin-top: 20px;">
+                <p>
+                    <strong>Note:</strong> This list is current as of the effective date of this DPA. The
+                    Processor will notify the Controller of any changes to this list in accordance with
+                    Article 5.3 of this DPA.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Print Button -->
+    <button class="print-btn no-print" onclick="window.print()">
+        Print / Save as PDF
+    </button>
+</body>
+</html>
