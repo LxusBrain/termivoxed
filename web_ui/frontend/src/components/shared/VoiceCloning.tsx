@@ -381,13 +381,18 @@ export default function VoiceCloning({
               <p className="text-xs text-text-muted mb-3">
                 Voice cloning is a Pro tier feature. Upgrade your subscription to clone and use custom voices.
               </p>
-              <button
-                onClick={() => navigate('/pricing')}
-                className="btn-primary text-sm flex items-center gap-2"
+              <a
+                href="https://lxusbrain.com/termivoxed/subscription"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary text-sm inline-flex items-center gap-2"
               >
                 <Lock className="w-4 h-4" />
                 Upgrade to Pro
-              </button>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
             </div>
           </div>
         </div>

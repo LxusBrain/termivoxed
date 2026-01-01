@@ -290,8 +290,6 @@ function OverviewTab({
   cancellingSubscription: boolean
   formatDate: (date: string) => string
 }) {
-  const navigate = useNavigate()
-
   return (
     <>
       {/* Profile Card */}
@@ -359,14 +357,19 @@ function OverviewTab({
         )}
 
         <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => navigate('/pricing')}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+          <a
+            href="https://lxusbrain.com/termivoxed/subscription"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2"
           >
             {subscription?.tier === 'free_trial' || subscription?.tier === 'expired'
               ? 'Upgrade Now'
-              : 'Change Plan'}
-          </button>
+              : 'Manage Subscription'}
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
 
           {subscription?.tier !== 'free_trial' &&
             subscription?.tier !== 'expired' &&

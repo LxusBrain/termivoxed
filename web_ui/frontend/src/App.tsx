@@ -7,11 +7,8 @@ import SettingsPage from './pages/SettingsPage'
 import LoginPage from './pages/auth/LoginPage'
 import SignupPage from './pages/auth/SignupPage'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
-import PricingPage from './pages/PricingPage'
 import AccountPage from './pages/AccountPage'
 import LegalPage from './pages/LegalPage'
-import PaymentSuccessPage from './pages/payment/PaymentSuccessPage'
-import PaymentCancelPage from './pages/payment/PaymentCancelPage'
 import TTSConsentModal from './components/TTSConsentModal'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import DebugPanel from './components/DebugPanel'
@@ -42,13 +39,8 @@ function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-          {/* Public info routes */}
-          <Route path="/pricing" element={<PricingPage />} />
+          {/* Account route */}
           <Route path="/account" element={<RequireAuth><AccountPage /></RequireAuth>} />
-
-          {/* Payment result routes */}
-          <Route path="/payment/success" element={<PaymentSuccessPage />} />
-          <Route path="/payment/cancel" element={<PaymentCancelPage />} />
 
           {/* Legal pages */}
           <Route path="/legal/:type" element={<LegalPage />} />
