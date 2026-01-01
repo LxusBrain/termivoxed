@@ -3,6 +3,8 @@
  *
  * Handles new user registration with Firebase.
  * Supports email/password and social signup.
+ *
+ * Styled to match the LxusBrain website theme.
  */
 
 import { useState, useEffect } from 'react'
@@ -11,9 +13,11 @@ import { useAuthStore, selectIsAuthenticated } from '../../stores/authStore'
 import {
   signUpWithEmail,
   signInWithGoogle,
-  signInWithGithub,
+  signInWithMicrosoft,
   isFirebaseConfigured
 } from '../../lib/firebase'
+import { getPersistedDeviceFingerprint } from '../../lib/deviceFingerprint'
+import { TermiVoxedLogo } from '../../components/logos'
 
 export function SignupPage() {
   const navigate = useNavigate()
@@ -69,24 +73,24 @@ export function SignupPage() {
 
     try {
       if (!isFirebaseConfigured()) {
-        // Firebase not configured - show error instead of dev bypass
         setError('Authentication service is not configured. Please contact support.')
         setLoading(false)
         return
       }
 
-      // Create account with Firebase
       const userCredential = await signUpWithEmail(email, password)
       const token = await userCredential.user.getIdToken()
 
-      const success = await login(token)
+      // Get device fingerprint for device tracking
+      const deviceFingerprint = getPersistedDeviceFingerprint()
+
+      const success = await login(token, deviceFingerprint)
       if (success) {
         navigate('/', { replace: true })
       }
     } catch (err: unknown) {
       console.error('Signup error:', err)
       if (err instanceof Error) {
-        // Handle Firebase-specific error messages
         if (err.message.includes('email-already-in-use')) {
           setError('An account with this email already exists. Please sign in instead.')
         } else if (err.message.includes('weak-password')) {
@@ -117,7 +121,10 @@ export function SignupPage() {
       const userCredential = await signInWithGoogle()
       const token = await userCredential.user.getIdToken()
 
-      const success = await login(token)
+      // Get device fingerprint for device tracking
+      const deviceFingerprint = getPersistedDeviceFingerprint()
+
+      const success = await login(token, deviceFingerprint)
       if (success) {
         navigate('/', { replace: true })
       }
@@ -129,55 +136,62 @@ export function SignupPage() {
     }
   }
 
-  const handleGitHubSignup = async () => {
+  const handleMicrosoftSignup = async () => {
     setError(null)
     setLoading(true)
 
     try {
       if (!isFirebaseConfigured()) {
-        setError('GitHub signup will be available after Firebase configuration')
+        setError('Microsoft signup will be available after Firebase configuration')
         return
       }
 
-      const userCredential = await signInWithGithub()
+      const userCredential = await signInWithMicrosoft()
       const token = await userCredential.user.getIdToken()
 
-      const success = await login(token)
+      // Get device fingerprint for device tracking
+      const deviceFingerprint = getPersistedDeviceFingerprint()
+
+      const success = await login(token, deviceFingerprint)
       if (success) {
         navigate('/', { replace: true })
       }
     } catch (err: unknown) {
-      console.error('GitHub signup error:', err)
-      setError(err instanceof Error ? err.message : 'GitHub signup failed')
+      console.error('Microsoft signup error:', err)
+      setError(err instanceof Error ? err.message : 'Microsoft signup failed')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 px-4 py-8">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] px-4 py-8 relative overflow-hidden">
+      {/* Background gradient effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl" />
+      </div>
+
+      <div className="max-w-md w-full relative z-10">
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <Link to="/" className="inline-block">
-            <h1 className="text-3xl font-bold text-white">
-              <span className="text-purple-500">Termi</span>Voxed
-            </h1>
+            <TermiVoxedLogo width={100} />
           </Link>
-          <p className="mt-2 text-gray-400">
+          <p className="mt-3 text-gray-400 text-sm">
             Create your account to get started
           </p>
         </div>
 
         {/* Card */}
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-gray-700/50">
+        <div className="bg-gray-900/50 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/10">
           <h2 className="text-2xl font-semibold text-white text-center mb-6">
             Create Account
           </h2>
 
           {/* Error message */}
           {error && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
               {error}
             </div>
           )}
@@ -185,7 +199,7 @@ export function SignupPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
                 Full Name
               </label>
               <input
@@ -193,7 +207,7 @@ export function SignupPage() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2.5 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
                 placeholder="John Doe"
                 required
                 disabled={loading}
@@ -201,7 +215,7 @@ export function SignupPage() {
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
                 Email
               </label>
               <input
@@ -209,7 +223,7 @@ export function SignupPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
                 placeholder="you@example.com"
                 required
                 disabled={loading}
@@ -217,7 +231,7 @@ export function SignupPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
                 Password
               </label>
               <input
@@ -225,7 +239,7 @@ export function SignupPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2.5 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
                 placeholder="At least 8 characters"
                 required
                 minLength={8}
@@ -234,7 +248,7 @@ export function SignupPage() {
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
                 Confirm Password
               </label>
               <input
@@ -242,7 +256,7 @@ export function SignupPage() {
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-2.5 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
                 placeholder="Confirm your password"
                 required
                 disabled={loading}
@@ -256,16 +270,16 @@ export function SignupPage() {
                 type="checkbox"
                 checked={acceptedTerms}
                 onChange={(e) => setAcceptedTerms(e.target.checked)}
-                className="mt-1 w-4 h-4 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
+                className="mt-1 w-4 h-4 bg-gray-700 border-gray-600 rounded focus:ring-cyan-500 focus:ring-2 accent-cyan-500"
                 disabled={loading}
               />
               <label htmlFor="terms" className="text-sm text-gray-400">
                 I agree to the{' '}
-                <a href="/terms" className="text-purple-400 hover:underline">
+                <a href="/terms" className="text-cyan-400 hover:underline">
                   Terms of Service
                 </a>{' '}
                 and{' '}
-                <a href="/privacy" className="text-purple-400 hover:underline">
+                <a href="/privacy" className="text-cyan-400 hover:underline">
                   Privacy Policy
                 </a>
               </label>
@@ -274,7 +288,7 @@ export function SignupPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25"
             >
               {loading ? (
                 <>
@@ -290,10 +304,10 @@ export function SignupPage() {
           {/* Divider */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-600" />
+              <div className="w-full border-t border-gray-700" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gray-800/50 text-gray-400">Or sign up with</span>
+              <span className="px-3 bg-gray-900/50 text-gray-500">Or sign up with</span>
             </div>
           </div>
 
@@ -302,7 +316,7 @@ export function SignupPage() {
             <button
               onClick={handleGoogleSignup}
               disabled={loading}
-              className="flex items-center justify-center gap-2 py-2.5 px-4 bg-gray-700/50 hover:bg-gray-700 disabled:bg-gray-700/30 disabled:cursor-not-allowed border border-gray-600 rounded-lg text-gray-200 font-medium transition-colors"
+              className="flex items-center justify-center gap-2 py-3 px-4 bg-gray-800/50 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700 hover:border-gray-600 rounded-xl text-gray-200 font-medium transition-all"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
@@ -326,18 +340,17 @@ export function SignupPage() {
             </button>
 
             <button
-              onClick={handleGitHubSignup}
+              onClick={handleMicrosoftSignup}
               disabled={loading}
-              className="flex items-center justify-center gap-2 py-2.5 px-4 bg-gray-700/50 hover:bg-gray-700 disabled:bg-gray-700/30 disabled:cursor-not-allowed border border-gray-600 rounded-lg text-gray-200 font-medium transition-colors"
+              className="flex items-center justify-center gap-2 py-3 px-4 bg-gray-800/50 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700 hover:border-gray-600 rounded-xl text-gray-200 font-medium transition-all"
             >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z"
-                />
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#F25022" d="M1 1h10v10H1z"/>
+                <path fill="#00A4EF" d="M1 13h10v10H1z"/>
+                <path fill="#7FBA00" d="M13 1h10v10H13z"/>
+                <path fill="#FFB900" d="M13 13h10v10H13z"/>
               </svg>
-              GitHub
+              Microsoft
             </button>
           </div>
 
@@ -346,7 +359,7 @@ export function SignupPage() {
             Already have an account?{' '}
             <Link
               to="/login"
-              className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
+              className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
             >
               Sign in
             </Link>
@@ -356,7 +369,7 @@ export function SignupPage() {
         {/* Free trial info */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
-            Start with a <span className="text-purple-400 font-medium">7-day free trial</span>
+            Start with a <span className="text-cyan-400 font-medium">7-day free trial</span>
           </p>
           <p className="text-xs text-gray-600 mt-1">
             No credit card required

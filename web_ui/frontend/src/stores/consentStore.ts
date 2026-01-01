@@ -9,6 +9,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { api } from '../api/client';
 
 // Types
 export interface TTSConsentDialogContent {
@@ -98,9 +99,6 @@ interface ConsentState {
   needsConsentForProvider: (provider: string) => boolean;
 }
 
-// API Base URL
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
 // Providers that don't require consent (local processing only)
 const LOCAL_PROVIDERS = ['coqui', 'piper'];
 
@@ -122,8 +120,8 @@ export const useConsentStore = create<ConsentState>()(
       // Check TTS consent status from backend
       checkTTSConsent: async () => {
         try {
-          const response = await fetch(`${API_BASE}/api/v1/consent/tts/status`);
-          const data = await response.json();
+          const response = await api.get('/consent/tts/status');
+          const data = response.data;
 
           set({
             hasTTSConsent: data.has_consent,
@@ -145,24 +143,10 @@ export const useConsentStore = create<ConsentState>()(
         set({ isLoading: true, error: null });
 
         try {
-          const response = await fetch(`${API_BASE}/api/v1/consent/tts/record`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              granted,
-              remember_choice: true,
-            }),
+          await api.post('/consent/tts/record', {
+            granted,
+            remember_choice: true,
           });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            set({
-              isLoading: false,
-              error: data.detail || 'Failed to record consent',
-            });
-            return false;
-          }
 
           set({
             hasTTSConsent: granted,
@@ -176,9 +160,10 @@ export const useConsentStore = create<ConsentState>()(
           return granted;
         } catch (err) {
           console.error('Failed to record TTS consent:', err);
+          const axiosError = err as { response?: { data?: { detail?: string } } };
           set({
             isLoading: false,
-            error: 'Network error. Please try again.',
+            error: axiosError?.response?.data?.detail || 'Network error. Please try again.',
           });
           return false;
         }
@@ -187,9 +172,8 @@ export const useConsentStore = create<ConsentState>()(
       // Load TTS dialog content from backend
       loadTTSDialogContent: async () => {
         try {
-          const response = await fetch(`${API_BASE}/api/v1/consent/tts/dialog-content`);
-          const data = await response.json();
-          set({ ttsDialogContent: data });
+          const response = await api.get('/consent/tts/dialog-content');
+          set({ ttsDialogContent: response.data });
         } catch (err) {
           console.error('Failed to load TTS dialog content:', err);
         }
@@ -198,9 +182,8 @@ export const useConsentStore = create<ConsentState>()(
       // Load TTS warning banner content from backend
       loadTTSWarningBanner: async () => {
         try {
-          const response = await fetch(`${API_BASE}/api/v1/consent/tts/warning-banner`);
-          const data = await response.json();
-          set({ ttsWarningBanner: data });
+          const response = await api.get('/consent/tts/warning-banner');
+          set({ ttsWarningBanner: response.data });
         } catch (err) {
           console.error('Failed to load TTS warning banner:', err);
         }

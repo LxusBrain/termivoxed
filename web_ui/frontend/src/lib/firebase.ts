@@ -12,7 +12,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
-  GithubAuthProvider,
+  OAuthProvider,
   sendPasswordResetEmail,
   signOut,
   onAuthStateChanged,
@@ -61,14 +61,15 @@ export { auth }
 
 // Auth providers
 const googleProvider = new GoogleAuthProvider()
-const githubProvider = new GithubAuthProvider()
+const microsoftProvider = new OAuthProvider('microsoft.com')
 
 // Configure Google provider
 googleProvider.addScope('email')
 googleProvider.addScope('profile')
 
-// Configure GitHub provider
-githubProvider.addScope('user:email')
+// Configure Microsoft provider
+microsoftProvider.addScope('email')
+microsoftProvider.addScope('profile')
 
 /**
  * Sign in with email and password
@@ -101,13 +102,13 @@ export async function signInWithGoogle(): Promise<UserCredential> {
 }
 
 /**
- * Sign in with GitHub
+ * Sign in with Microsoft
  */
-export async function signInWithGithub(): Promise<UserCredential> {
+export async function signInWithMicrosoft(): Promise<UserCredential> {
   if (!isFirebaseConfigured() || !auth) {
     throw new Error('Firebase is not configured. Please set up your Firebase credentials.')
   }
-  return signInWithPopup(auth, githubProvider)
+  return signInWithPopup(auth, microsoftProvider)
 }
 
 /**

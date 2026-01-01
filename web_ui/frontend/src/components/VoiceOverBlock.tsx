@@ -145,8 +145,8 @@ export default function VoiceOverBlock({
           onClick={(e) => { e.stopPropagation(); onClick() }}
           title={getTooltipText()}
           className={clsx(
-            'h-full relative flex items-center',
-            isDragging ? 'cursor-grabbing shadow-lg' : '',
+            'h-full relative flex items-center transition-shadow',
+            isDragging ? 'cursor-grabbing shadow-lg ring-2 ring-amber-400/50 ring-offset-1 ring-offset-transparent' : '',
             hasContent
               ? isSelected
                 ? 'bg-amber-600/40 border-y-2 border-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.3)]'
@@ -163,10 +163,10 @@ export default function VoiceOverBlock({
           {/* Left resize handle */}
           {onDragStart && (
             <div
-              className="absolute left-0 top-0 bottom-0 w-3 cursor-ew-resize z-20 flex items-center justify-center hover:bg-amber-500/40 active:bg-amber-500/60"
+              className="absolute left-0 top-0 bottom-0 w-3 cursor-ew-resize z-20 flex items-center justify-center hover:bg-amber-500/40 active:bg-amber-500/60 transition-colors"
               onMouseDown={(e) => handleMouseDown(e, 'resize-start')}
             >
-              <div className="w-0.5 h-5 bg-amber-400/80 rounded" />
+              <div className="w-0.5 h-5 bg-amber-400/50 rounded opacity-50 group-hover:opacity-100 group-hover:bg-amber-400 transition-all" />
             </div>
           )}
 
@@ -235,10 +235,10 @@ export default function VoiceOverBlock({
           {/* Right resize handle */}
           {onDragStart && (
             <div
-              className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize z-20 flex items-center justify-center hover:bg-amber-500/40 active:bg-amber-500/60"
+              className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize z-20 flex items-center justify-center hover:bg-amber-500/40 active:bg-amber-500/60 transition-colors"
               onMouseDown={(e) => handleMouseDown(e, 'resize-end')}
             >
-              <div className="w-0.5 h-5 bg-amber-400/80 rounded" />
+              <div className="w-0.5 h-5 bg-amber-400/50 rounded opacity-50 group-hover:opacity-100 group-hover:bg-amber-400 transition-all" />
             </div>
           )}
 
@@ -249,6 +249,14 @@ export default function VoiceOverBlock({
                 className="h-full bg-green-400/70"
                 style={{ width: `${Math.min((segmentDuration / remainingAudio) * 100, 100)}%` }}
               />
+            </div>
+          )}
+
+          {/* Time display during drag/selection */}
+          {(isSelected || isDragging) && (
+            <div className="absolute -bottom-4 left-0 right-0 flex justify-between text-[9px] font-mono text-amber-400/80 pointer-events-none z-30">
+              <span className="bg-terminal-bg/90 px-0.5 rounded">{startTime.toFixed(1)}s</span>
+              <span className="bg-terminal-bg/90 px-0.5 rounded">{endTime.toFixed(1)}s</span>
             </div>
           )}
         </div>

@@ -21,7 +21,7 @@ from pydantic import BaseModel
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from web_ui.api.middleware.auth import get_current_user, AuthenticatedUser
+from web_ui.api.middleware.auth import get_current_user, require_feature, AuthenticatedUser
 
 from backend.tts_service import TTSService
 from backend.ffmpeg_utils import FFmpegUtils
@@ -38,6 +38,7 @@ from web_ui.api.schemas.tts_schemas import (
 )
 from config import settings
 from utils.logger import logger
+from web_ui.api.utils.usage_tracker import track_usage, check_usage_limit, UsageAction
 
 router = APIRouter()
 
@@ -121,6 +122,19 @@ async def preview_voice(
         param_hash = hash(f"{request.rate}_{request.volume}_{request.pitch}_{request.text}") % 100000
         segment_name = f"preview_{request.voice_id[:20]}_{param_hash}"
 
+        # Detect provider from voice_id prefix
+        # Coqui voices start with "coqui_", Piper with "piper_", etc.
+        if request.voice_id.startswith("coqui_"):
+            primary_provider = "coqui"
+            fallback_providers = ["coqui", "edge_tts"]
+        elif request.voice_id.startswith("piper_"):
+            primary_provider = "piper"
+            fallback_providers = ["piper", "edge_tts"]
+        else:
+            # Assume Edge TTS for other voice formats (e.g., en-US-AriaNeural)
+            primary_provider = "edge_tts"
+            fallback_providers = ["edge_tts", "coqui"]
+
         # Generate preview audio using RESILIENT method with automatic fallback
         # Uses circuit breaker, health monitoring, and fallback to other providers
         audio_path, _ = await tts_service.generate_with_resilience(
@@ -132,7 +146,7 @@ async def preview_voice(
             rate=request.rate,
             volume=request.volume,
             pitch=request.pitch,
-            fallback_providers=["edge_tts", "coqui"],
+            fallback_providers=fallback_providers,
         )
 
         # Get audio duration
@@ -214,6 +228,23 @@ async def generate_tts(
 
         duration = FFmpegUtils.get_media_duration(audio_path)
 
+        # Track TTS usage in Firebase (only for new generations, not cached)
+        if duration and duration > 0:
+            # Convert duration from seconds to minutes
+            duration_minutes = duration / 60.0
+            track_usage(
+                user_id=user.uid,
+                action=UsageAction.TTS_MINUTE,
+                amount=duration_minutes,
+                metadata={
+                    "text_length": len(request.text),
+                    "language": request.language,
+                    "voice_id": request.voice_id,
+                    "is_voice_cloning": bool(request.voice_sample_id),
+                }
+            )
+            logger.info(f"[TTS] Usage tracked for user {user.uid}: {duration_minutes:.2f} minutes")
+
         return TTSGenerateResponse(
             audio_path=audio_path,
             subtitle_path=subtitle_path,
@@ -269,10 +300,14 @@ async def get_audio_file(
 
 
 @router.post("/estimate-duration")
-async def estimate_duration(request: dict):
+async def estimate_duration(
+    request: dict,
+    user: AuthenticatedUser = Depends(get_current_user)
+):
     """Estimate audio duration for text (without generating audio)
 
     Uses POST to handle long text content without URL length limits.
+    Requires authentication to prevent abuse.
     """
     text = request.get("text", "")
     language = request.get("language", "en")
@@ -605,6 +640,15 @@ async def generate_with_provider(
 
         duration = FFmpegUtils.get_media_duration(audio_path)
 
+        # Track TTS usage (convert seconds to minutes)
+        if duration and duration > 0:
+            tts_minutes = duration / 60.0
+            track_usage(user.uid, UsageAction.TTS_MINUTE, tts_minutes, {
+                "provider": getattr(request, 'provider', 'default'),
+                "language": request.language,
+                "text_length": len(request.text),
+            })
+
         return TTSGenerateResponse(
             audio_path=audio_path,
             subtitle_path=subtitle_path,
@@ -903,11 +947,14 @@ def _save_voice_samples_metadata(metadata: dict):
 
 
 @router.get("/voice-samples", response_model=VoiceSampleListResponse)
-async def list_voice_samples(user: AuthenticatedUser = Depends(get_current_user)):
+async def list_voice_samples(
+    user: AuthenticatedUser = Depends(require_feature("voice_cloning"))
+):
     """
-    Get all uploaded voice samples (requires authentication).
+    Get all uploaded voice samples (requires voice_cloning feature).
 
     Voice samples can be used for voice cloning with Coqui TTS.
+    Requires Pro tier or higher.
     """
     try:
         metadata = _load_voice_samples_metadata()
@@ -942,10 +989,11 @@ async def upload_voice_sample(
     file: UploadFile = File(..., description="Audio file for voice cloning (WAV, MP3, FLAC, OGG, M4A)"),
     name: str = Form(..., description="Display name for the voice sample"),
     language: str = Form("en", description="Language of the speaker"),
-    user: AuthenticatedUser = Depends(get_current_user)
+    user: AuthenticatedUser = Depends(require_feature("voice_cloning"))
 ):
     """
     Upload a voice sample for voice cloning.
+    Requires Pro tier or higher with voice_cloning feature.
 
     Requirements:
     - Audio file (WAV, MP3, FLAC, OGG, or M4A)
@@ -955,7 +1003,16 @@ async def upload_voice_sample(
 
     The voice sample will be used to clone the speaker's voice
     when generating TTS audio with Coqui TTS.
+
+    Requires Pro subscription for voice_cloning feature.
     """
+    # Check for voice_cloning feature
+    if not user.has_feature("voice_cloning"):
+        raise HTTPException(
+            status_code=403,
+            detail="Voice cloning requires a Pro subscription. Upgrade to upload voice samples."
+        )
+
     try:
         # Validate file extension
         file_ext = Path(file.filename).suffix.lower()
@@ -1028,10 +1085,11 @@ async def upload_voice_sample(
 @router.delete("/voice-samples/{sample_id}")
 async def delete_voice_sample(
     sample_id: str,
-    user: AuthenticatedUser = Depends(get_current_user)
+    user: AuthenticatedUser = Depends(require_feature("voice_cloning"))
 ):
     """
     Delete a voice sample.
+    Requires Pro tier or higher with voice_cloning feature.
 
     This permanently removes the voice sample and it cannot be recovered.
     """
@@ -1069,10 +1127,11 @@ async def delete_voice_sample(
 @router.get("/voice-samples/{sample_id}")
 async def get_voice_sample(
     sample_id: str,
-    user: AuthenticatedUser = Depends(get_current_user)
+    user: AuthenticatedUser = Depends(require_feature("voice_cloning"))
 ):
     """
-    Get details for a specific voice sample (requires authentication).
+    Get details for a specific voice sample.
+    Requires Pro tier or higher with voice_cloning feature.
     """
     try:
         metadata = _load_voice_samples_metadata()
@@ -1122,7 +1181,16 @@ async def clone_voice(
 
     The cloned voice maintains the characteristics of the original
     speaker while speaking the new text.
+
+    Requires Pro subscription for voice_cloning feature.
     """
+    # Check for voice_cloning feature
+    if not user.has_feature("voice_cloning"):
+        raise HTTPException(
+            status_code=403,
+            detail="Voice cloning requires a Pro subscription. Upgrade to use cloned voices."
+        )
+
     try:
         # Check if Coqui is available
         current_provider = tts_service.get_current_provider()
@@ -1208,6 +1276,22 @@ async def clone_voice(
 
         logger.info(f"Generated cloned voice audio: {output_path} ({result.duration_seconds:.1f}s)")
 
+        # Track voice cloning usage in Firebase
+        if result.duration_seconds > 0:
+            track_usage(
+                user_id=user.uid,
+                action=UsageAction.VOICE_CLONING,
+                amount=1,  # Count as 1 voice cloning operation
+                metadata={
+                    "text_length": len(request.text),
+                    "language": request.language,
+                    "duration_seconds": result.duration_seconds,
+                    "voice_sample_name": sample_info["name"],
+                    "num_samples_used": len(all_sample_paths),
+                }
+            )
+            logger.info(f"[VoiceClone] Usage tracked for user {user.uid}")
+
         return VoiceCloneResponse(
             audio_url=f"/storage/{output_path.relative_to(settings.STORAGE_DIR)}",
             subtitle_url=subtitle_url,
@@ -1237,7 +1321,16 @@ async def preview_cloned_voice(
     to get progress updates.
 
     Uses a short text to quickly demonstrate how the cloned voice sounds.
+
+    Requires Pro subscription for voice_cloning feature.
     """
+    # Check for voice_cloning feature
+    if not user.has_feature("voice_cloning"):
+        raise HTTPException(
+            status_code=403,
+            detail="Voice cloning requires a Pro subscription. Upgrade to preview cloned voices."
+        )
+
     try:
         # Validate voice sample
         metadata = _load_voice_samples_metadata()

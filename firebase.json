@@ -18,7 +18,7 @@
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
-    "public": "web_ui/frontend/dist",
+    "public": "dist",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -26,23 +26,8 @@
     ],
     "rewrites": [
       {
-        "source": "/api/**",
-        "function": "api"
-      },
-      {
         "source": "**",
         "destination": "/index.html"
-      }
-    ],
-    "headers": [
-      {
-        "source": "**/*.@(js|css|map)",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "max-age=31536000"
-          }
-        ]
       }
     ]
   },

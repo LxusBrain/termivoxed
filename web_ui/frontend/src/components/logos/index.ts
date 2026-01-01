@@ -1,0 +1,1 @@
+export { TermiVoxedLogo } from './TermiVoxedLogo';

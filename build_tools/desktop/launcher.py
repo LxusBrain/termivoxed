@@ -189,12 +189,39 @@ def mark_initialized():
     marker.write_text(f'Initialized at {time.strftime("%Y-%m-%d %H:%M:%S")}')
 
 
-def start_backend():
+def find_available_port(start_port=8000, max_attempts=10):
+    """Find an available port starting from the given port.
+
+    This is SAFE - it never kills existing processes, just finds
+    the next available port.
+    """
+    import socket
+
+    for offset in range(max_attempts):
+        port = start_port + offset
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('127.0.0.1', port))
+                return port
+        except OSError:
+            continue
+
+    # If no port found in range, let the OS assign one
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
+
+
+def start_backend(port=None):
     """Start the FastAPI backend server."""
     app_dir = get_app_dir()
 
     # Add app directory to Python path
     sys.path.insert(0, str(app_dir))
+
+    # Find available port if not specified
+    if port is None:
+        port = find_available_port()
 
     # Import and run uvicorn
     import uvicorn
@@ -203,11 +230,11 @@ def start_backend():
     config = uvicorn.Config(
         app,
         host='127.0.0.1',
-        port=8000,
+        port=port,
         log_level='info',
     )
     server = uvicorn.Server(config)
-    return server
+    return server, port
 
 
 def open_browser(url, delay=2):
@@ -243,25 +270,32 @@ def main():
     else:
         print("       WARNING: FFmpeg not found!")
 
+    # Find available port (SAFE - never kills existing processes)
+    print("[4/5] Finding available port...")
+    port = find_available_port(start_port=8000, max_attempts=10)
+    if port != 8000:
+        print(f"       Port 8000 is in use, using port {port} instead")
+    else:
+        print(f"       Using port {port}")
+
     # Start backend server
-    print("[4/5] Starting backend server...")
+    print("[5/5] Starting backend server...")
 
     try:
         # Import here after environment is set up
         import uvicorn
         sys.path.insert(0, str(get_app_dir()))
 
-        # Start server in background thread
+        # Start server in background thread with dynamic port
         def run_server():
             from web_ui.api.main import app
-            uvicorn.run(app, host='127.0.0.1', port=8000, log_level='warning')
+            uvicorn.run(app, host='127.0.0.1', port=port, log_level='warning')
 
         server_thread = threading.Thread(target=run_server, daemon=True)
         server_thread.start()
 
-        # Open browser
-        print("[5/5] Opening browser...")
-        url = "http://127.0.0.1:8000"
+        # Open browser with correct port
+        url = f"http://127.0.0.1:{port}"
         threading.Thread(target=open_browser, args=(url, 2), daemon=True).start()
 
         print()

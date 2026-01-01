@@ -2,11 +2,14 @@
  * Forgot Password Page for TermiVoxed
  *
  * Handles password reset requests via Firebase.
+ *
+ * Styled to match the LxusBrain website theme.
  */
 
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { resetPassword, isFirebaseConfigured } from '../../lib/firebase'
+import { TermiVoxedLogo } from '../../components/logos'
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -55,27 +58,31 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 px-4">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] px-4 relative overflow-hidden">
+      {/* Background gradient effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl" />
+      </div>
+
+      <div className="max-w-md w-full relative z-10">
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <Link to="/" className="inline-block">
-            <h1 className="text-3xl font-bold text-white">
-              <span className="text-purple-500">Termi</span>Voxed
-            </h1>
+            <TermiVoxedLogo width={100} />
           </Link>
-          <p className="mt-2 text-gray-400">
+          <p className="mt-3 text-gray-400 text-sm">
             Reset your password
           </p>
         </div>
 
         {/* Card */}
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-gray-700/50">
+        <div className="bg-gray-900/50 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/10">
           {success ? (
             // Success state
             <div className="text-center">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
-                <svg className="w-8 h-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
@@ -89,14 +96,14 @@ export function ForgotPasswordPage() {
                 Didn't receive the email? Check your spam folder or{' '}
                 <button
                   onClick={() => setSuccess(false)}
-                  className="text-purple-400 hover:text-purple-300 transition-colors"
+                  className="text-cyan-400 hover:text-cyan-300 transition-colors"
                 >
                   try again
                 </button>
               </p>
               <Link
                 to="/login"
-                className="inline-block py-2.5 px-6 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors"
+                className="inline-block py-3 px-6 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-medium rounded-xl transition-all shadow-lg shadow-cyan-500/25"
               >
                 Back to Sign In
               </Link>
@@ -113,7 +120,7 @@ export function ForgotPasswordPage() {
 
               {/* Error message */}
               {error && (
-                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
                   {error}
                 </div>
               )}
@@ -121,7 +128,7 @@ export function ForgotPasswordPage() {
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
                     Email Address
                   </label>
                   <input
@@ -129,7 +136,7 @@ export function ForgotPasswordPage() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
                     placeholder="you@example.com"
                     required
                     disabled={loading}
@@ -140,7 +147,7 @@ export function ForgotPasswordPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25"
                 >
                   {loading ? (
                     <>
@@ -158,7 +165,7 @@ export function ForgotPasswordPage() {
                 Remember your password?{' '}
                 <Link
                   to="/login"
-                  className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
+                  className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
                 >
                   Sign in
                 </Link>
@@ -170,7 +177,7 @@ export function ForgotPasswordPage() {
         {/* Help text */}
         <p className="mt-6 text-center text-sm text-gray-500">
           Need help?{' '}
-          <a href="mailto:support@termivoxed.com" className="text-purple-400 hover:underline">
+          <a href="mailto:lxusbrain@gmail.com" className="text-cyan-400 hover:underline">
             Contact Support
           </a>
         </p>

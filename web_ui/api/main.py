@@ -54,27 +54,38 @@ app = FastAPI(
     redirect_slashes=False,  # Don't redirect /path to /path/ - causes CORS issues
 )
 
-# Build CORS origins list including custom hostname
-cors_origins = [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:5175",
-    "http://localhost:5176",
-    "http://localhost:3000",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:5174",
-    "http://127.0.0.1:5175",
-    "http://127.0.0.1:5176",
-]
+# Build CORS origins list with dynamic port support
+# Include a range of ports to support dynamic port allocation
+def build_cors_origins():
+    """Build CORS origins list supporting dynamic ports."""
+    origins = []
 
-# Add custom hostname origins if configured
-if TERMIVOXED_HOST and TERMIVOXED_HOST not in ["localhost", "127.0.0.1"]:
-    cors_origins.extend([
-        f"http://{TERMIVOXED_HOST}:5173",
-        f"http://{TERMIVOXED_HOST}:5174",
-        f"http://{TERMIVOXED_HOST}:5175",
-        f"http://{TERMIVOXED_HOST}:{TERMIVOXED_PORT}",
-    ])
+    # Common development hosts
+    hosts = ["localhost", "127.0.0.1"]
+
+    # Add custom hostname if configured
+    if TERMIVOXED_HOST and TERMIVOXED_HOST not in hosts:
+        hosts.append(TERMIVOXED_HOST)
+
+    # Port ranges to support (frontend dev server ports)
+    frontend_ports = range(5173, 5183)  # 5173-5182 (10 ports)
+    backend_ports = range(8000, 8010)   # 8000-8009 (10 ports)
+
+    for host in hosts:
+        # Frontend ports
+        for port in frontend_ports:
+            origins.append(f"http://{host}:{port}")
+
+        # Backend ports (for when frontend is served from backend)
+        for port in backend_ports:
+            origins.append(f"http://{host}:{port}")
+
+        # Also add port 3000 for React default
+        origins.append(f"http://{host}:3000")
+
+    return origins
+
+cors_origins = build_cors_origins()
 
 # CORS configuration for frontend
 # Use explicit methods and headers for security (avoid wildcards in production)
@@ -136,8 +147,8 @@ app.include_router(models.router, prefix="/api/v1/models", tags=["AI Models"])
 # WebSocket routes (no prefix needed - path defined in router)
 app.include_router(timeline_ws.router, tags=["Timeline WebSocket"])
 
-# Serve uploaded videos and output files
-app.mount("/storage", StaticFiles(directory="storage"), name="storage")
+# Serve uploaded videos and output files from configured storage directory
+app.mount("/storage", StaticFiles(directory=settings.STORAGE_DIR), name="storage")
 
 
 @app.get("/")

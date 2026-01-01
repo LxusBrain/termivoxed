@@ -51,6 +51,7 @@ class ExportQueueItem(BaseModel):
     """Item in export queue"""
     id: str
     project_name: str
+    user_id: str  # SECURITY: Track ownership for access control
     status: Literal["queued", "processing", "completed", "failed"]
     progress: int
     current_stage: Optional[str] = None

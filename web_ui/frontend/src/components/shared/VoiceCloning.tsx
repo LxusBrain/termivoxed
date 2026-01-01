@@ -33,7 +33,8 @@ import toast from 'react-hot-toast'
 
 import { ttsApi, modelsApi, VoiceSample } from '../../api/client'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, Settings } from 'lucide-react'
+import { AlertTriangle, Settings, Lock } from 'lucide-react'
+import { useAuthStore } from '../../stores/authStore'
 
 interface CloneProgress {
   stage: string
@@ -64,6 +65,9 @@ export default function VoiceCloning({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
 
+  // Check if user has voice_cloning feature
+  const hasVoiceCloning = useAuthStore((state) => state.hasFeature('voice_cloning'))
+
   const [isExpanded, setIsExpanded] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadName, setUploadName] = useState('')
@@ -73,21 +77,23 @@ export default function VoiceCloning({
   const [cloneProgress, setCloneProgress] = useState<CloneProgress | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
 
-  // Check if voice cloning model is downloaded
+  // Check if voice cloning model is downloaded (only if user has feature)
   const { data: modelStatusData, isLoading: isCheckingModel } = useQuery({
     queryKey: ['voice-cloning-model-check'],
     queryFn: () => modelsApi.checkModel('xtts_v2'),
     staleTime: 60 * 1000, // Cache for 1 minute
     retry: 1,
+    enabled: hasVoiceCloning, // Only check if user has voice_cloning feature
   })
 
   const isModelReady = modelStatusData?.data?.ready || false
 
-  // Fetch voice samples
+  // Fetch voice samples (only if user has voice_cloning feature)
   const { data: samplesData, isLoading } = useQuery({
     queryKey: ['voice-samples'],
     queryFn: () => ttsApi.getVoiceSamples(),
     staleTime: 30 * 1000,
+    enabled: hasVoiceCloning, // Only fetch if user has voice_cloning feature
   })
 
   const samples = samplesData?.data?.samples || []
@@ -364,6 +370,30 @@ export default function VoiceCloning({
   }
 
   function renderContent() {
+    // Check subscription feature first
+    if (!hasVoiceCloning) {
+      return (
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+            <Lock className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-purple-400 mb-1">Pro Feature</p>
+              <p className="text-xs text-text-muted mb-3">
+                Voice cloning is a Pro tier feature. Upgrade your subscription to clone and use custom voices.
+              </p>
+              <button
+                onClick={() => navigate('/pricing')}
+                className="btn-primary text-sm flex items-center gap-2"
+              >
+                <Lock className="w-4 h-4" />
+                Upgrade to Pro
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     // Show loading state while checking model
     if (isCheckingModel) {
       return (

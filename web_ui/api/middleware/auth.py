@@ -26,6 +26,15 @@ from subscription.models import SubscriptionTier, SubscriptionStatus, FeatureAcc
 # Firebase Admin SDK (lazy import to avoid startup issues if not configured)
 _firebase_app = None
 
+# Only enable verbose logging in development
+_DEBUG_AUTH = os.getenv("TERMIVOXED_ENV", "development").lower() not in ("production", "prod")
+
+
+def _debug_log(message: str):
+    """Print debug message only in development mode."""
+    if _DEBUG_AUTH:
+        print(message)
+
 
 def _get_firebase_app():
     """Lazy initialization of Firebase Admin SDK"""
@@ -40,6 +49,7 @@ def _get_firebase_app():
         # Check if already initialized
         try:
             _firebase_app = firebase_admin.get_app()
+            _debug_log("[FIREBASE] Using existing Firebase app")
             return _firebase_app
         except ValueError:
             pass
@@ -47,21 +57,39 @@ def _get_firebase_app():
         # Try to initialize with service account credentials
         cred_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 
-        if cred_path and os.path.exists(cred_path):
-            cred = credentials.Certificate(cred_path)
-            _firebase_app = firebase_admin.initialize_app(cred)
-        else:
-            # Try default credentials (works in GCP environments)
-            try:
-                cred = credentials.ApplicationDefault()
-                _firebase_app = firebase_admin.initialize_app(cred)
-            except Exception:
-                # Fall back to no credentials (limited functionality)
-                _firebase_app = firebase_admin.initialize_app()
+        if cred_path:
+            if os.path.exists(cred_path):
+                try:
+                    cred = credentials.Certificate(cred_path)
+                    _firebase_app = firebase_admin.initialize_app(cred)
+                    # Only show filename, not full path (security)
+                    _debug_log(f"[FIREBASE] ✓ Initialized with service account")
+                    return _firebase_app
+                except Exception as e:
+                    _debug_log(f"[FIREBASE] ✗ Failed to load credentials: {type(e).__name__}")
+            else:
+                _debug_log("[FIREBASE] ✗ Credentials file not found")
 
-        return _firebase_app
+        # Try default credentials (works in GCP environments)
+        try:
+            cred = credentials.ApplicationDefault()
+            _firebase_app = firebase_admin.initialize_app(cred)
+            _debug_log("[FIREBASE] ✓ Initialized with default credentials")
+            return _firebase_app
+        except Exception:
+            _debug_log("[FIREBASE] Default credentials not available")
+
+        # Last resort - initialize without credentials (very limited)
+        try:
+            _firebase_app = firebase_admin.initialize_app()
+            _debug_log("[FIREBASE] ⚠ Initialized without credentials (limited functionality)")
+            return _firebase_app
+        except Exception:
+            _debug_log("[FIREBASE] ✗ Failed to initialize")
+            return None
 
     except ImportError:
+        _debug_log("[FIREBASE] ✗ firebase-admin not installed")
         return None
 
 
@@ -145,45 +173,153 @@ async def verify_firebase_token(token: str) -> Optional[dict]:
     firebase_app = _get_firebase_app()
 
     if firebase_app is None:
-        # Firebase MUST be configured for production - raise error instead of silent bypass
-        raise RuntimeError(
-            "CRITICAL: Firebase not configured. Set GOOGLE_APPLICATION_CREDENTIALS "
-            "environment variable to your Firebase service account JSON file path."
-        )
+        # In development, show helpful error message
+        if _DEBUG_AUTH:
+            print("\n" + "=" * 60)
+            print("ERROR: Firebase Admin SDK not configured!")
+            print("=" * 60)
+            print("Set GOOGLE_APPLICATION_CREDENTIALS environment variable")
+            print("=" * 60 + "\n")
+        raise RuntimeError("Firebase not configured")
 
     try:
         from firebase_admin import auth
-        from utils.logger import logger
 
         # Verify the token
         decoded_token = auth.verify_id_token(token, check_revoked=True)
         return decoded_token
 
     except auth.RevokedIdTokenError:
-        # Token has been revoked
+        _debug_log("[AUTH] Token revoked")
         return None
     except auth.ExpiredIdTokenError:
-        # Token has expired
+        _debug_log("[AUTH] Token expired")
         return None
     except auth.InvalidIdTokenError:
-        # Token is invalid
+        _debug_log("[AUTH] Invalid token")
         return None
     except Exception as e:
-        # Log the error but don't expose details to client
-        from utils.logger import logger
-        logger.error(f"Token verification error: {e}")
+        # Log error type only (not details) for security
+        _debug_log(f"[AUTH] Verification failed: {type(e).__name__}")
+        try:
+            from utils.logger import logger
+            logger.error(f"Token verification error: {type(e).__name__}")
+        except Exception:
+            pass
         return None
+
+
+def _normalize_tier(tier_str: str) -> SubscriptionTier:
+    """
+    Normalize tier string from various sources to SubscriptionTier enum.
+
+    Handles:
+    - lxusbrain format: "individual", "pro", "enterprise", "free"
+    - termivoxed Cloud Functions format: "INDIVIDUAL", "BASIC", "PRO", "FREE_TRIAL"
+    - Legacy formats and edge cases
+    """
+    if not tier_str:
+        return SubscriptionTier.FREE_TRIAL
+
+    tier_lower = tier_str.lower().strip()
+
+    # Direct enum value match
+    tier_map = {
+        # Standard lowercase (lxusbrain & Python enum values)
+        "free_trial": SubscriptionTier.FREE_TRIAL,
+        "free": SubscriptionTier.FREE_TRIAL,
+        "trial": SubscriptionTier.FREE_TRIAL,
+        "individual": SubscriptionTier.INDIVIDUAL,
+        "pro": SubscriptionTier.PRO,
+        "enterprise": SubscriptionTier.ENTERPRISE,
+        "lifetime": SubscriptionTier.LIFETIME,
+        "expired": SubscriptionTier.EXPIRED,
+        # Legacy BASIC -> INDIVIDUAL mapping
+        "basic": SubscriptionTier.INDIVIDUAL,
+    }
+
+    return tier_map.get(tier_lower, SubscriptionTier.FREE_TRIAL)
+
+
+def _normalize_status(status_str: str) -> SubscriptionStatus:
+    """
+    Normalize status string from various sources to SubscriptionStatus enum.
+
+    Handles:
+    - lxusbrain format: "active", "cancelled", "payment_failed"
+    - termivoxed Cloud Functions format: "ACTIVE", "CANCELLED", "PAST_DUE"
+    """
+    if not status_str:
+        return SubscriptionStatus.TRIAL
+
+    status_lower = status_str.lower().strip()
+
+    status_map = {
+        # Standard values
+        "active": SubscriptionStatus.ACTIVE,
+        "trial": SubscriptionStatus.TRIAL,
+        "expired": SubscriptionStatus.EXPIRED,
+        "cancelled": SubscriptionStatus.CANCELLED,
+        "canceled": SubscriptionStatus.CANCELLED,  # US spelling
+        "past_due": SubscriptionStatus.PAST_DUE,
+        "pastdue": SubscriptionStatus.PAST_DUE,
+        "grace_period": SubscriptionStatus.GRACE_PERIOD,
+        # lxusbrain-specific
+        "payment_failed": SubscriptionStatus.PAST_DUE,
+    }
+
+    return status_map.get(status_lower, SubscriptionStatus.TRIAL)
+
+
+def _parse_expiry_date(data: dict, field_names: list) -> Optional[datetime]:
+    """
+    Parse expiry date from various field names and formats.
+
+    Args:
+        data: Dictionary containing the date field
+        field_names: List of possible field names to check
+
+    Returns:
+        Parsed datetime or None
+    """
+    for field_name in field_names:
+        value = data.get(field_name)
+        if value is None:
+            continue
+
+        try:
+            # Handle Firestore Timestamp objects
+            if hasattr(value, 'seconds'):
+                return datetime.fromtimestamp(value.seconds)
+
+            # Handle Python datetime
+            if isinstance(value, datetime):
+                return value
+
+            # Handle ISO string
+            if isinstance(value, str):
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+        except (ValueError, AttributeError, TypeError):
+            continue
+
+    return None
 
 
 async def _load_user_subscription(uid: str) -> dict:
     """
     Load user subscription data from Firestore.
 
+    Checks multiple data sources in order of priority:
+    1. users/{uid} top-level fields (lxusbrain website format)
+    2. subscriptions/{uid} collection (termivoxed Cloud Functions format)
+    3. users/{uid}.subscription nested field (legacy format)
+
     Args:
         uid: Firebase user ID
 
     Returns:
-        Subscription data dictionary
+        Subscription data dictionary with tier, status, features, expires_at
 
     Raises:
         RuntimeError: If Firebase is not configured
@@ -191,62 +327,122 @@ async def _load_user_subscription(uid: str) -> dict:
     firebase_app = _get_firebase_app()
 
     if firebase_app is None:
-        # Firebase MUST be configured - this is a critical error
         raise RuntimeError(
             "CRITICAL: Firebase not configured. Cannot load user subscription."
         )
+
+    default_result = {
+        "tier": SubscriptionTier.FREE_TRIAL,
+        "status": SubscriptionStatus.TRIAL,
+        "features": FeatureAccess.for_tier(SubscriptionTier.FREE_TRIAL),
+    }
 
     try:
         from firebase_admin import firestore
 
         db = firestore.client()
+
+        # First, get the user document
         user_doc = db.collection("users").document(uid).get()
 
         if not user_doc.exists:
-            # New user - create with free trial
+            _debug_log(f"[AUTH] User {uid[:8]}... not found, returning FREE_TRIAL")
+            return default_result
+
+        user_data = user_doc.to_dict()
+
+        # =========================================================
+        # PRIORITY 1: Check for lxusbrain-style top-level fields
+        # Fields: plan, planStatus, subscription_expires_at
+        # =========================================================
+        if "plan" in user_data:
+            tier = _normalize_tier(user_data.get("plan", "free"))
+            status = _normalize_status(user_data.get("planStatus", "active"))
+
+            # For active subscriptions, use ACTIVE status (not TRIAL)
+            if tier != SubscriptionTier.FREE_TRIAL and status == SubscriptionStatus.TRIAL:
+                status = SubscriptionStatus.ACTIVE
+
+            expires_at = _parse_expiry_date(user_data, [
+                "subscription_expires_at",
+                "subscriptionExpiresAt",
+                "expiresAt",
+            ])
+
+            _debug_log(f"[AUTH] Loaded lxusbrain-style subscription: tier={tier.value}, status={status.value}")
+
             return {
-                "tier": SubscriptionTier.FREE_TRIAL,
-                "status": SubscriptionStatus.TRIAL,
-                "features": FeatureAccess.for_tier(SubscriptionTier.FREE_TRIAL),
+                "tier": tier,
+                "status": status,
+                "features": FeatureAccess.for_tier(tier),
+                "expires_at": expires_at,
+                "device_id": user_data.get("currentDevice", {}).get("deviceId"),
             }
 
-        data = user_doc.to_dict()
-        subscription = data.get("subscription", {})
+        # =========================================================
+        # PRIORITY 2: Check subscriptions/{uid} collection
+        # (termivoxed Cloud Functions format)
+        # =========================================================
+        sub_doc = db.collection("subscriptions").document(uid).get()
 
-        tier_str = subscription.get("tier", "free_trial").lower()
-        try:
-            tier = SubscriptionTier(tier_str)
-        except ValueError:
-            tier = SubscriptionTier.FREE_TRIAL
+        if sub_doc.exists:
+            sub_data = sub_doc.to_dict()
 
-        status_str = subscription.get("status", "trial").lower()
-        try:
-            sub_status = SubscriptionStatus(status_str)
-        except ValueError:
-            sub_status = SubscriptionStatus.TRIAL
+            tier = _normalize_tier(sub_data.get("tier", "free_trial"))
+            status = _normalize_status(sub_data.get("status", "active"))
 
-        expires_at = None
-        if subscription.get("periodEnd"):
-            try:
-                expires_at = datetime.fromisoformat(subscription["periodEnd"].replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
-                pass
+            expires_at = _parse_expiry_date(sub_data, [
+                "currentPeriodEnd",
+                "current_period_end",
+                "periodEnd",
+                "trialEndsAt",
+            ])
 
-        return {
-            "tier": tier,
-            "status": sub_status,
-            "features": FeatureAccess.for_tier(tier),
-            "expires_at": expires_at,
-            "device_id": data.get("currentDevice", {}).get("deviceId"),
-        }
+            _debug_log(f"[AUTH] Loaded subscriptions collection: tier={tier.value}, status={status.value}")
+
+            return {
+                "tier": tier,
+                "status": status,
+                "features": FeatureAccess.for_tier(tier),
+                "expires_at": expires_at,
+                "device_id": sub_data.get("activeDeviceId") or user_data.get("currentDevice", {}).get("deviceId"),
+            }
+
+        # =========================================================
+        # PRIORITY 3: Check users/{uid}.subscription nested field
+        # (legacy format for backward compatibility)
+        # =========================================================
+        subscription = user_data.get("subscription", {})
+
+        if subscription:
+            tier = _normalize_tier(subscription.get("tier", "free_trial"))
+            status = _normalize_status(subscription.get("status", "trial"))
+
+            expires_at = _parse_expiry_date(subscription, [
+                "periodEnd",
+                "currentPeriodEnd",
+                "expiresAt",
+            ])
+
+            _debug_log(f"[AUTH] Loaded legacy subscription: tier={tier.value}, status={status.value}")
+
+            return {
+                "tier": tier,
+                "status": status,
+                "features": FeatureAccess.for_tier(tier),
+                "expires_at": expires_at,
+                "device_id": user_data.get("currentDevice", {}).get("deviceId"),
+            }
+
+        # =========================================================
+        # No subscription data found - return FREE_TRIAL
+        # =========================================================
+        _debug_log(f"[AUTH] No subscription data found for {uid[:8]}..., returning FREE_TRIAL")
+        return default_result
 
     except Exception as e:
-        print(f"Error loading subscription: {e}")
-        return {
-            "tier": SubscriptionTier.FREE_TRIAL,
-            "status": SubscriptionStatus.TRIAL,
-            "features": FeatureAccess.for_tier(SubscriptionTier.FREE_TRIAL),
-        }
+        _debug_log(f"[AUTH] Error loading subscription: {type(e).__name__}: {str(e)}")
+        return default_result
 
 
 async def get_current_user(
@@ -258,19 +454,31 @@ async def get_current_user(
 
     Raises HTTPException 401 if not authenticated.
 
+    Supports two authentication methods:
+    1. Authorization: Bearer <token> header (preferred for API calls)
+    2. ?token=<token> query parameter (for HTML5 video/audio elements)
+
     Usage:
         @app.get("/protected")
         async def protected_route(user: AuthenticatedUser = Depends(get_current_user)):
             return {"message": f"Hello {user.email}"}
     """
-    if credentials is None:
+    token = None
+
+    # Try Authorization header first
+    if credentials is not None:
+        token = credentials.credentials
+    else:
+        # Fall back to query parameter for video/audio streaming
+        token = request.query_params.get("token")
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    token = credentials.credentials
     decoded = await verify_firebase_token(token)
 
     if decoded is None:

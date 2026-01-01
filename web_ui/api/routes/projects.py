@@ -485,6 +485,20 @@ async def add_bgm_track(
     # SECURITY: Verify ownership
     _verify_project_ownership(project, user)
 
+    # Check BGM track limit based on subscription
+    max_bgm = user.get_feature_limit("max_bgm_tracks") or 0
+    current_bgm_count = len(project.bgm_tracks)
+    if current_bgm_count >= max_bgm:
+        if max_bgm == 0:
+            raise HTTPException(
+                status_code=403,
+                detail="Background music is not available on your subscription. Please upgrade to add BGM tracks."
+            )
+        raise HTTPException(
+            status_code=403,
+            detail=f"Your subscription allows maximum {max_bgm} BGM tracks. You have {current_bgm_count}. Please upgrade to add more."
+        )
+
     # Validate the audio file exists
     if not os.path.exists(request.path):
         raise HTTPException(status_code=400, detail=f"Audio file not found: {request.path}")

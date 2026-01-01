@@ -94,7 +94,7 @@ service cloud.firestore {
 
     // Fields that should NEVER be set by users (only cloud functions/webhooks)
     function hasProtectedFields(data) {
-      return data.keys().hasAny(['subscription', 'role', 'stripeCustomerId', 'isAdmin']);
+      return data.keys().hasAny(['subscription', 'role', 'paymentCustomerId', 'razorpayCustomerId', 'isAdmin']);
     }
 
     // =======================================================================
@@ -116,7 +116,7 @@ service cloud.firestore {
       allow update: if isOwner(userId) &&
         // Prevent users from modifying protected fields
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['subscription', 'role', 'createdAt', 'stripeCustomerId', 'isAdmin']);
+          .hasAny(['subscription', 'role', 'createdAt', 'paymentCustomerId', 'razorpayCustomerId', 'isAdmin']);
 
       // Only admins can delete user documents
       allow delete: if hasAdminAccess();
@@ -273,13 +273,18 @@ service cloud.firestore {
     }
 
     // =======================================================================
-    // STRIPE & PAYMENT PROCESSING (Cloud Functions Only)
+    // RAZORPAY & PAYMENT PROCESSING (Cloud Functions Only)
     // =======================================================================
 
-    // Stripe webhook event tracking for idempotency
-    match /stripe_events/{eventId} {
-      // Only cloud functions can access stripe events
+    // Payment webhook event tracking for idempotency
+    match /payment_events/{eventId} {
+      // Only cloud functions can access payment events
       // SECURITY: Prevents replay attacks and event manipulation
+      allow read, write: if false;
+    }
+
+    // Razorpay specific events
+    match /razorpay_events/{eventId} {
       allow read, write: if false;
     }
 

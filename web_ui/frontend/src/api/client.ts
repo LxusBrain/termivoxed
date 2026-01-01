@@ -1,18 +1,32 @@
 import axios from 'axios'
+import toast from 'react-hot-toast'
 
 const API_BASE = '/api/v1'
 
-// Determine WebSocket base URL - in dev mode, use port 8000 directly
+// Get backend port from environment (set by Vite config from start.sh)
+const getBackendPort = (): number => {
+  // In development, VITE_BACKEND_PORT is set by start.sh via vite.config.ts
+  const envPort = import.meta.env.VITE_BACKEND_PORT
+  if (envPort) {
+    return parseInt(envPort, 10)
+  }
+  // Fallback to default
+  return 8000
+}
+
+// Determine WebSocket base URL - use dynamic port
 const getWsBaseUrl = () => {
   if (import.meta.env.DEV) {
-    // Development: API runs on port 8000
-    return `ws://${window.location.hostname}:8000`
+    // Development: Use dynamic backend port
+    const backendPort = getBackendPort()
+    return `ws://${window.location.hostname}:${backendPort}`
   }
-  // Production: same host
+  // Production: same host (served by backend)
   return `ws://${window.location.host}`
 }
 
 export const WS_BASE_URL = getWsBaseUrl()
+export const BACKEND_PORT = getBackendPort()
 
 export const api = axios.create({
   baseURL: API_BASE,
@@ -32,13 +46,33 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
 
-      // Import authStore dynamically to avoid circular dependencies
+      // Import authStore and firebase dynamically to avoid circular dependencies
       const { useAuthStore } = await import('../stores/authStore')
+      const { getIdToken, isFirebaseConfigured } = await import('../lib/firebase')
       const authState = useAuthStore.getState()
 
-      // If user was authenticated, their token expired
+      // If user was authenticated, try to refresh the token first
       if (authState.token) {
-        // Clear auth state and redirect to login
+        // Try to get a fresh token from Firebase
+        if (isFirebaseConfigured()) {
+          try {
+            console.log('[AUTH] Token expired, attempting refresh...')
+            const freshToken = await getIdToken()
+            if (freshToken) {
+              console.log('[AUTH] Token refreshed successfully, retrying request...')
+              // Update the store and axios headers
+              authState.setToken(freshToken)
+              // Retry the original request with new token
+              originalRequest.headers['Authorization'] = `Bearer ${freshToken}`
+              return api(originalRequest)
+            }
+          } catch (refreshError) {
+            console.error('[AUTH] Token refresh failed:', refreshError)
+          }
+        }
+
+        // Token refresh failed - clear auth state and redirect to login
+        console.log('[AUTH] Token refresh failed, logging out...')
         authState.logout()
 
         // Only redirect if not already on auth pages
@@ -50,14 +84,44 @@ api.interceptors.response.use(
       }
     }
 
-    // Handle 403 Forbidden - insufficient permissions
+    // Handle 403 Forbidden - subscription limits or permissions
     if (error.response?.status === 403) {
-      console.warn('Access forbidden:', error.response?.data?.detail || 'Insufficient permissions')
+      const detail = error.response?.data?.detail || 'Insufficient permissions'
+      const requestUrl = originalRequest?.url || ''
+
+      // Don't show toast for feature-gated endpoints that users might not have access to
+      // These should be handled gracefully in the UI, not with error toasts
+      const featureGatedEndpoints = [
+        '/voice-samples',
+        '/clone-voice',
+        '/voice-cloning',
+      ]
+      const isFeatureGatedEndpoint = featureGatedEndpoints.some(ep => requestUrl.includes(ep))
+
+      if (!isFeatureGatedEndpoint) {
+        // Check if it's a subscription limit error
+        if (detail.includes('subscription') || detail.includes('limit') || detail.includes('maximum')) {
+          toast.error(detail, {
+            duration: 5000,
+          })
+        } else {
+          toast.error(`Access denied: ${detail}`, {
+            duration: 4000,
+          })
+        }
+      }
+      // For feature-gated endpoints, silently reject - UI should handle gracefully
     }
 
     // Handle 429 Too Many Requests - rate limiting
     if (error.response?.status === 429) {
-      console.warn('Rate limited. Please wait before making more requests.')
+      const retryAfter = error.response?.headers?.['retry-after']
+      toast.error(
+        retryAfter
+          ? `Rate limited. Please wait ${retryAfter} seconds.`
+          : 'Too many requests. Please slow down.',
+        { duration: 4000 }
+      )
     }
 
     return Promise.reject(error)
@@ -547,7 +611,8 @@ export const modelsApi = {
   // Create WebSocket for download progress
   createProgressWebSocket: (downloadId: string): WebSocket => {
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsHost = import.meta.env.DEV ? `${window.location.hostname}:8000` : window.location.host
+    const backendPort = getBackendPort()
+    const wsHost = import.meta.env.DEV ? `${window.location.hostname}:${backendPort}` : window.location.host
     return new WebSocket(`${wsProtocol}//${wsHost}/api/v1/models/voice-cloning/progress/${downloadId}`)
   },
 }

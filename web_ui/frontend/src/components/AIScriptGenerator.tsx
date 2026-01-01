@@ -517,7 +517,7 @@ export default function AIScriptGenerator({
       if (data.all_fit) {
         toast.success('Scripts generated successfully!')
       } else {
-        toast('Some scripts may not fit their segments', { icon: '⚠️' })
+        toast('Some scripts may not fit their segments')
       }
     },
     onError: (error: Error) => {
@@ -584,7 +584,7 @@ export default function AIScriptGenerator({
       if (allFit) {
         toast.success(`${totalSegments} segments generated (${coverage?.toFixed(0) || 0}% coverage)`)
       } else {
-        toast(`${totalSegments} segments generated with timing adjustments`, { icon: '⚠️' })
+        toast(`${totalSegments} segments generated with timing adjustments`)
       }
 
       // Show refinement info if any
@@ -593,7 +593,7 @@ export default function AIScriptGenerator({
       }
 
       if (data.warnings && data.warnings.length > 0) {
-        data.warnings.slice(0, 3).forEach((w: string) => toast(w, { icon: '⚠️' }))
+        data.warnings.slice(0, 3).forEach((w: string) => toast(w))
       }
     },
     onError: (error: Error) => {

@@ -166,10 +166,22 @@ export default function VideoPlayer({ videoUrl, duration, videoOffset = 0, bgmTr
 
         // Build audio URL - handle various path formats
         let audioUrl = currentSegment.audio_path
-        if (audioUrl.includes('storage/')) {
+        if (audioUrl.startsWith('/storage/')) {
+          // Already a proper URL
+          audioUrl = audioUrl
+        } else if (audioUrl.includes('/projects/')) {
+          // Absolute filesystem path - extract relative portion from 'projects/' onward
+          const projectsIndex = audioUrl.indexOf('/projects/')
+          audioUrl = `/storage${audioUrl.substring(projectsIndex)}`
+        } else if (audioUrl.includes('storage/')) {
+          // Legacy format with storage in path
           audioUrl = `/storage/${audioUrl.split('storage/').pop()}`
         } else if (!audioUrl.startsWith('/')) {
+          // Relative path - prepend /storage/
           audioUrl = `/storage/${audioUrl}`
+        } else {
+          // Unknown absolute path - try using as storage relative
+          audioUrl = `/storage/projects${audioUrl.substring(audioUrl.lastIndexOf('/'))}`
         }
 
         console.log('Playing segment audio:', currentSegment.name, audioUrl)

@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { Play, Pause, Volume2, VolumeX, Maximize, SkipBack, SkipForward, Headphones, Film, Music, AlertTriangle, Loader2 } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
+import { useAuthStore } from '../stores/authStore'
 import clsx from 'clsx'
 import type { VideoInfo } from '../types'
 import type { BGMTrack } from '../api/client'
@@ -91,6 +92,9 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
   const isSwitchingRef = useRef(false)
   const hasTriggeredEndStopRef = useRef(false)  // Track if we've already triggered stop at end
 
+  // Get auth token for video streaming
+  const authToken = useAuthStore((state) => state.token)
+
   // Performance optimization: track last seek time to debounce rapid seeks
   const lastSeekTimeRef = useRef<number>(0)
   const seekDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -123,6 +127,12 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
   const videoPositions = useMemo((): VideoPosition[] => {
     const positions: VideoPosition[] = []
 
+    // Build URL with auth token for video streaming
+    const buildStreamUrl = (videoId: string) => {
+      const baseUrl = `/api/v1/videos/${projectName}/${videoId}/stream`
+      return authToken ? `${baseUrl}?token=${encodeURIComponent(authToken)}` : baseUrl
+    }
+
     // Check if any video has explicit timeline positions
     const hasExplicitPositions = videos.some(v => v.timeline_start !== null && v.timeline_start !== undefined)
 
@@ -135,7 +145,7 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
         positions.push({
           id: video.id,
           name: video.name,
-          url: `/api/v1/videos/${projectName}/${video.id}/stream`,
+          url: buildStreamUrl(video.id),
           timelineStart: start,
           timelineEnd: end,
           duration: videoDuration,
@@ -154,7 +164,7 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
         positions.push({
           id: video.id,
           name: video.name,
-          url: `/api/v1/videos/${projectName}/${video.id}/stream`,
+          url: buildStreamUrl(video.id),
           timelineStart: currentStart,
           timelineEnd: currentStart + videoDuration,
           duration: videoDuration,
@@ -168,7 +178,7 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
 
     // Sort by timeline start for easier lookup
     return positions.sort((a, b) => a.timelineStart - b.timelineStart)
-  }, [videos, projectName])
+  }, [videos, projectName, authToken])
 
   // Find which video should be playing at the current time
   // Also track if we're in a "gap" between videos
@@ -1272,7 +1282,7 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
 
     // Block playback if video is not ready yet
     if (!canPlay && !isInGap && isVideoLoading) {
-      toast('Video is still loading. Please wait...', { icon: '⏳', duration: 2000 })
+      toast('Video is still loading. Please wait...', { duration: 2000 })
       return
     }
 

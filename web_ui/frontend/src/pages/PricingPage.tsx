@@ -4,12 +4,15 @@
  * Displays subscription tiers with multi-currency support:
  * - INR for India (Razorpay)
  * - USD for International (Stripe)
+ *
+ * Styled to match the LxusBrain website theme.
  */
 
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuthStore, selectIsAuthenticated } from '../stores/authStore'
+import { TermiVoxedLogo } from '../components/logos'
 
 // Types
 interface PriceData {
@@ -142,7 +145,7 @@ export function PricingPage() {
 
     if (plan === 'enterprise') {
       // Redirect to contact form for enterprise
-      window.location.href = 'mailto:enterprise@luxusbrain.com?subject=TermiVoxed Enterprise Inquiry'
+      window.location.href = 'mailto:lxusbrain@gmail.com?subject=TermiVoxed Enterprise Inquiry'
       return
     }
 
@@ -208,7 +211,7 @@ export function PricingPage() {
         email: useAuthStore.getState().user?.email,
       },
       theme: {
-        color: '#9333ea', // Purple
+        color: '#06b6d4', // Cyan
       },
     }
 
@@ -218,9 +221,9 @@ export function PricingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-gray-400">Loading pricing...</p>
         </div>
       </div>
@@ -229,12 +232,12 @@ export function PricingPage() {
 
   if (error || !pricing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
         <div className="text-center">
           <p className="text-red-400 mb-4">{error || 'Failed to load pricing'}</p>
           <button
             onClick={fetchPricing}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg"
+            className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white rounded-xl"
           >
             Retry
           </button>
@@ -246,12 +249,25 @@ export function PricingPage() {
   const { plans, currency, gst_included, processor } = pricing
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-900 to-purple-900/20 py-12 px-4">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-[#0a0a0a] py-12 px-4 relative overflow-hidden">
+      {/* Background gradient effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-cyan-500/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-blue-600/5 rounded-full blur-3xl" />
+      </div>
+
+      <div className="max-w-7xl mx-auto relative z-10">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <Link to="/" className="inline-block">
+            <TermiVoxedLogo width={120} />
+          </Link>
+        </div>
+
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            Simple, Transparent Pricing
+            Simple, Transparent <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Pricing</span>
           </h1>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
             Choose the plan that fits your needs. Start with a free trial,
@@ -259,8 +275,8 @@ export function PricingPage() {
           </p>
 
           {/* Currency indicator */}
-          <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 rounded-full text-sm text-gray-300">
-            <span className="w-2 h-2 bg-green-500 rounded-full" />
+          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-gray-900/50 backdrop-blur-sm rounded-full text-sm text-gray-300 border border-white/10">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
             Paying in {currency} via {processor === 'razorpay' ? 'Razorpay' : 'Stripe'}
             {gst_included && <span className="text-gray-500">• GST included</span>}
           </div>
@@ -268,14 +284,14 @@ export function PricingPage() {
 
         {/* Billing period toggle */}
         <div className="flex justify-center mb-12">
-          <div className="inline-flex bg-gray-800/50 rounded-xl p-1">
+          <div className="inline-flex bg-gray-900/50 backdrop-blur-sm rounded-xl p-1 border border-white/10">
             {(['monthly', 'quarterly', 'yearly'] as BillingPeriod[]).map((period) => (
               <button
                 key={period}
                 onClick={() => setBillingPeriod(period)}
                 className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
                   billingPeriod === period
-                    ? 'bg-purple-600 text-white shadow-lg'
+                    ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25'
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
@@ -336,12 +352,8 @@ export function PricingPage() {
         <div className="mt-16 text-center">
           <p className="text-gray-400">
             Questions?{' '}
-            <a href="mailto:support@luxusbrain.com" className="text-purple-400 hover:underline">
+            <a href="mailto:lxusbrain@gmail.com" className="text-cyan-400 hover:underline">
               Contact us
-            </a>{' '}
-            or check our{' '}
-            <a href="/faq" className="text-purple-400 hover:underline">
-              FAQ
             </a>
           </p>
         </div>
@@ -375,16 +387,16 @@ function PricingCard({
 
   return (
     <div
-      className={`relative rounded-2xl p-6 ${
+      className={`relative rounded-2xl p-6 backdrop-blur-sm transition-all ${
         highlighted
-          ? 'bg-gradient-to-b from-purple-600/20 to-purple-900/20 border-2 border-purple-500'
-          : 'bg-gray-800/50 border border-gray-700/50'
+          ? 'bg-gradient-to-b from-cyan-950/50 to-blue-950/50 border-2 border-cyan-500/50 shadow-lg shadow-cyan-500/10'
+          : 'bg-gray-900/50 border border-white/10 hover:border-cyan-500/30'
       }`}
     >
       {/* Recommended badge */}
       {plan.recommended && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className="px-3 py-1 bg-purple-600 text-white text-xs font-medium rounded-full">
+          <span className="px-3 py-1 bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-xs font-medium rounded-full shadow-lg shadow-cyan-500/25">
             Most Popular
           </span>
         </div>
@@ -433,12 +445,12 @@ function PricingCard({
       <button
         onClick={() => onSubscribe(planKey)}
         disabled={processing}
-        className={`w-full py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+        className={`w-full py-3 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
           highlighted
-            ? 'bg-purple-600 hover:bg-purple-700 text-white'
+            ? 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white shadow-lg shadow-cyan-500/25'
             : isFree
-            ? 'bg-gray-700 hover:bg-gray-600 text-white'
-            : 'bg-gray-700/50 hover:bg-gray-700 text-white border border-gray-600'
+            ? 'bg-gray-800/50 hover:bg-gray-800 text-white border border-gray-700'
+            : 'bg-gray-800/50 hover:bg-gray-800 text-white border border-gray-700 hover:border-cyan-500/50'
         } disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         {processing ? (
@@ -486,7 +498,7 @@ function PricingCard({
           ))}
 
           {plan.limits.features.length > 5 && (
-            <li className="text-sm text-purple-400">
+            <li className="text-sm text-cyan-400">
               + {plan.limits.features.length - 5} more features
             </li>
           )}
@@ -499,7 +511,7 @@ function PricingCard({
 function CheckIcon() {
   return (
     <svg
-      className="w-4 h-4 text-green-500 flex-shrink-0"
+      className="w-4 h-4 text-cyan-400 flex-shrink-0"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"

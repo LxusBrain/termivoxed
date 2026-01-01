@@ -71,6 +71,13 @@ class FeatureAccess:
     custom_subtitle_styles: bool = False
     cross_video_segments: bool = False
     priority_support: bool = False
+    voice_cloning: bool = False  # Pro+ feature
+    api_access: bool = False  # Pro+ feature
+
+    # Enterprise tier features
+    custom_branding: bool = False
+    sso: bool = False
+    team_management: bool = False
 
     # Project limits
     max_videos_per_project: int = 1
@@ -123,6 +130,11 @@ class FeatureAccess:
             custom_subtitle_styles=False,
             cross_video_segments=False,
             priority_support=False,
+            voice_cloning=False,
+            api_access=False,
+            custom_branding=False,
+            sso=False,
+            team_management=False,
             max_videos_per_project=3,
             max_segments_per_video=10,
             max_export_duration_minutes=10,
@@ -143,6 +155,11 @@ class FeatureAccess:
             subtitle_generation=True,
             single_video_project=True,
             basic_tts_voices=True,
+            voice_cloning=False,
+            api_access=False,
+            custom_branding=False,
+            sso=False,
+            team_management=False,
             max_videos_per_project=1,
             max_segments_per_video=3,
             max_export_duration_minutes=2,
@@ -162,7 +179,11 @@ class FeatureAccess:
 
     @classmethod
     def individual_features(cls) -> 'FeatureAccess':
-        """Features for Individual tier (₹149/$4.99/month) - 200 exports/month"""
+        """Features for Individual tier (₹199/month) - 200 exports/month
+
+        IMPORTANT: Individual tier must have AT LEAST everything FREE_TRIAL has,
+        since paying customers should never have fewer features than trial users.
+        """
         return cls(
             basic_export=True,
             subtitle_generation=True,
@@ -173,13 +194,18 @@ class FeatureAccess:
             basic_bgm=True,
             export_720p=True,
             export_1080p=True,
-            advanced_tts_voices=False,
+            advanced_tts_voices=True,  # Must match FREE_TRIAL - paid users get at least trial features
             multiple_bgm_tracks=False,
             export_4k=False,
             batch_export=False,
             custom_subtitle_styles=True,
             cross_video_segments=False,
-            priority_support=False,
+            priority_support=True,  # Website says "Priority support" for Individual
+            voice_cloning=False,  # PRO feature only
+            api_access=False,  # PRO feature only
+            custom_branding=False,
+            sso=False,
+            team_management=False,
             max_videos_per_project=5,
             max_segments_per_video=50,
             max_export_duration_minutes=30,
@@ -194,7 +220,7 @@ class FeatureAccess:
 
     @classmethod
     def pro_features(cls) -> 'FeatureAccess':
-        """Features for Pro tier (₹299/$9.99/month) and Lifetime"""
+        """Features for Pro tier (₹399/month) and Lifetime - Truly unlimited exports"""
         return cls(
             basic_export=True,
             subtitle_generation=True,
@@ -212,21 +238,26 @@ class FeatureAccess:
             custom_subtitle_styles=True,
             cross_video_segments=True,
             priority_support=True,
+            voice_cloning=True,  # Website: "Voice cloning" for Pro
+            api_access=True,  # Website: "API access" for Pro
+            custom_branding=False,
+            sso=False,
+            team_management=False,
             max_videos_per_project=20,
             max_segments_per_video=200,
             max_export_duration_minutes=120,
             max_bgm_tracks=10,
-            # Usage limits for Pro tier - effectively unlimited exports
-            max_exports_per_month=9999,
-            max_tts_minutes_per_month=300,
-            max_ai_requests_per_month=500,
-            max_storage_mb=50000,  # 50 GB
+            # Usage limits for Pro tier - TRULY UNLIMITED (use large number for compatibility)
+            max_exports_per_month=999999,
+            max_tts_minutes_per_month=999999,
+            max_ai_requests_per_month=999999,
+            max_storage_mb=100000,  # 100 GB
             max_devices=3
         )
 
     @classmethod
     def enterprise_features(cls) -> 'FeatureAccess':
-        """Features for Enterprise tier (₹4,999/$59/month) - 40-50 users, 2000 exports"""
+        """Features for Enterprise tier (Custom pricing) - Truly unlimited for teams"""
         return cls(
             basic_export=True,
             subtitle_generation=True,
@@ -244,14 +275,19 @@ class FeatureAccess:
             custom_subtitle_styles=True,
             cross_video_segments=True,
             priority_support=True,
+            voice_cloning=True,
+            api_access=True,
+            custom_branding=False,  # NOT IMPLEMENTED - removed from promises
+            sso=False,  # NOT IMPLEMENTED - removed from promises
+            team_management=False,  # NOT IMPLEMENTED - removed from promises
             max_videos_per_project=100,
             max_segments_per_video=999,
             max_export_duration_minutes=999,
             max_bgm_tracks=50,
-            # Usage limits for Enterprise tier - team-level limits
-            max_exports_per_month=2000,
-            max_tts_minutes_per_month=1000,
-            max_ai_requests_per_month=2000,
+            # Usage limits for Enterprise tier - TRULY UNLIMITED
+            max_exports_per_month=999999,
+            max_tts_minutes_per_month=999999,
+            max_ai_requests_per_month=999999,
             max_storage_mb=500000,  # 500 GB
             max_devices=50
         )
@@ -275,6 +311,11 @@ class FeatureAccess:
             'custom_subtitle_styles': self.custom_subtitle_styles,
             'cross_video_segments': self.cross_video_segments,
             'priority_support': self.priority_support,
+            'voice_cloning': self.voice_cloning,
+            'api_access': self.api_access,
+            'custom_branding': self.custom_branding,
+            'sso': self.sso,
+            'team_management': self.team_management,
             'max_videos_per_project': self.max_videos_per_project,
             'max_segments_per_video': self.max_segments_per_video,
             'max_export_duration_minutes': self.max_export_duration_minutes,

@@ -51,6 +51,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         response = await call_next(request)
 
+        # Cross-Origin-Opener-Policy - Allow popups for Firebase Auth
+        # Firebase Auth uses popup windows for Google/Microsoft sign-in
+        # 'same-origin-allow-popups' allows the popup to communicate back
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+
         # Prevent MIME type sniffing - browsers should respect Content-Type
         response.headers["X-Content-Type-Options"] = "nosniff"
 

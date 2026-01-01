@@ -8,7 +8,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { api } from '../api/client'
-import { onAuthChange, logOut as firebaseLogOut, isFirebaseConfigured } from '../lib/firebase'
+import { onAuthChange, logOut as firebaseLogOut, isFirebaseConfigured, getIdToken } from '../lib/firebase'
 
 // ============================================================================
 // Types
@@ -23,15 +23,20 @@ export interface User {
 }
 
 export interface SubscriptionFeatures {
+  // Core features (all tiers)
   basic_export: boolean
   subtitle_generation: boolean
   single_video_project: boolean
   basic_tts_voices: boolean
+
+  // Individual tier features
   multi_video_projects: boolean
   custom_fonts: boolean
   basic_bgm: boolean
   export_720p: boolean
   export_1080p: boolean
+
+  // Pro tier features
   advanced_tts_voices: boolean
   multiple_bgm_tracks: boolean
   export_4k: boolean
@@ -39,10 +44,26 @@ export interface SubscriptionFeatures {
   custom_subtitle_styles: boolean
   cross_video_segments: boolean
   priority_support: boolean
+  voice_cloning: boolean
+  api_access: boolean
+
+  // Enterprise tier features
+  custom_branding: boolean
+  sso: boolean
+  team_management: boolean
+
+  // Project limits
   max_videos_per_project: number
   max_segments_per_video: number
   max_export_duration_minutes: number
   max_bgm_tracks: number
+
+  // Usage limits per month (optional - may not always be returned)
+  max_exports_per_month?: number
+  max_tts_minutes_per_month?: number
+  max_ai_requests_per_month?: number
+  max_storage_mb?: number
+  max_devices?: number
 }
 
 export interface Subscription {
@@ -94,27 +115,50 @@ export interface AuthState {
 // Default Features
 // ============================================================================
 
+// Default features for FREE_TRIAL tier (matches backend subscription/models.py)
+// IMPORTANT: Keep in sync with FeatureAccess.free_trial_features() in backend
 const defaultFeatures: SubscriptionFeatures = {
+  // Core features
   basic_export: true,
   subtitle_generation: true,
   single_video_project: true,
   basic_tts_voices: true,
+
+  // Individual tier features
   multi_video_projects: false,
   custom_fonts: false,
   basic_bgm: false,
   export_720p: true,
-  export_1080p: false,
-  advanced_tts_voices: false,
+  export_1080p: true,  // Allow 1080p in trial to show value
+
+  // Pro tier features
+  advanced_tts_voices: true,  // Full TTS in trial to show value
   multiple_bgm_tracks: false,
   export_4k: false,
   batch_export: false,
   custom_subtitle_styles: false,
   cross_video_segments: false,
   priority_support: false,
-  max_videos_per_project: 1,
-  max_segments_per_video: 5,
-  max_export_duration_minutes: 5,
+  voice_cloning: false,
+  api_access: false,
+
+  // Enterprise tier features
+  custom_branding: false,
+  sso: false,
+  team_management: false,
+
+  // FREE_TRIAL limits (from backend models.py)
+  max_videos_per_project: 3,
+  max_segments_per_video: 10,
+  max_export_duration_minutes: 10,
   max_bgm_tracks: 0,
+
+  // Usage limits for trial
+  max_exports_per_month: 5,
+  max_tts_minutes_per_month: 10,
+  max_ai_requests_per_month: 10,
+  max_storage_mb: 500,
+  max_devices: 1,
 }
 
 // ============================================================================
@@ -438,7 +482,60 @@ export const useAuthStore = create<AuthState>()(
             }
           } catch (error) {
             console.error('Token validation failed:', error)
-            // Clear invalid token
+
+            // Token might be expired - try to get a fresh one from Firebase
+            if (isFirebaseConfigured()) {
+              try {
+                const freshToken = await getIdToken()
+                if (freshToken) {
+                  console.log('Got fresh token from Firebase, retrying validation...')
+                  setToken(freshToken)
+                  api.defaults.headers.common['Authorization'] = `Bearer ${freshToken}`
+
+                  // Retry validation with fresh token
+                  const retryResponse = await api.get('/auth/me')
+                  const data = retryResponse.data
+
+                  setUser({
+                    uid: data.uid,
+                    email: data.email,
+                    emailVerified: data.email_verified,
+                    displayName: data.display_name,
+                    photoUrl: data.photo_url,
+                  })
+
+                  setSubscription({
+                    tier: data.subscription_tier,
+                    status: data.subscription_status,
+                    expiresAt: data.subscription_expires_at,
+                    features: data.features || defaultFeatures,
+                  })
+
+                  if (data.devices) {
+                    setDevices(
+                      data.devices.map((d: Record<string, unknown>) => ({
+                        deviceId: d.device_id as string,
+                        deviceName: d.device_name as string,
+                        deviceType: d.device_type as string,
+                        osVersion: d.os_version as string | null,
+                        isCurrent: d.is_current as boolean,
+                        lastSeen: d.last_seen as string,
+                        registeredAt: d.registered_at as string,
+                      }))
+                    )
+                  }
+
+                  // Successfully refreshed - skip the logout
+                  setLoading(false)
+                  set({ isInitialized: true })
+                  return
+                }
+              } catch (refreshError) {
+                console.error('Token refresh also failed:', refreshError)
+              }
+            }
+
+            // Clear invalid token - refresh didn't work
             setToken(null)
             setUser(null)
             setSubscription(null)

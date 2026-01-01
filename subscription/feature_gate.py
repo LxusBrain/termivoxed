@@ -46,28 +46,32 @@ class FeatureGate:
     """
 
     # Feature to tier mapping (minimum tier required)
-    # Aligned with PRODUCTION_PLAN.md tier structure
+    # IMPORTANT: This must match FeatureAccess.for_tier() in models.py
+    # These are fallback values used when FeatureAccess object unavailable
     FEATURE_REQUIREMENTS = {
+        # FREE_TRIAL gets these to "show value" (from models.py)
+        # Note: FREE_TRIAL has export_1080p=True and advanced_tts_voices=True
+        'export_1080p': SubscriptionTier.FREE_TRIAL,  # Trial gets 1080p
+        'advanced_tts_voices': SubscriptionTier.FREE_TRIAL,  # Trial gets premium TTS
+
         # Individual tier features (was BASIC)
         'multi_video_projects': SubscriptionTier.INDIVIDUAL,
         'custom_fonts': SubscriptionTier.INDIVIDUAL,
         'basic_bgm': SubscriptionTier.INDIVIDUAL,
-        'export_1080p': SubscriptionTier.INDIVIDUAL,
         'custom_subtitle_styles': SubscriptionTier.INDIVIDUAL,
+        'priority_support': SubscriptionTier.INDIVIDUAL,  # Individual gets priority support
 
         # Pro tier features
-        'advanced_tts_voices': SubscriptionTier.PRO,
         'multiple_bgm_tracks': SubscriptionTier.PRO,
         'export_4k': SubscriptionTier.PRO,
         'batch_export': SubscriptionTier.PRO,
         'cross_video_segments': SubscriptionTier.PRO,
         'voice_cloning': SubscriptionTier.PRO,
-        'priority_support': SubscriptionTier.PRO,
+        'api_access': SubscriptionTier.PRO,  # Pro gets API access (not Enterprise)
 
         # Enterprise tier features
         'sso': SubscriptionTier.ENTERPRISE,
         'team_management': SubscriptionTier.ENTERPRISE,
-        'api_access': SubscriptionTier.ENTERPRISE,
         'custom_branding': SubscriptionTier.ENTERPRISE,
     }
 
@@ -178,27 +182,39 @@ class FeatureGate:
                 'single_video_project': features.single_video_project,
                 'basic_tts_voices': features.basic_tts_voices,
             },
-            'basic': {
+            'individual': {
                 'multi_video_projects': features.multi_video_projects,
                 'custom_fonts': features.custom_fonts,
                 'basic_bgm': features.basic_bgm,
                 'export_720p': features.export_720p,
                 'export_1080p': features.export_1080p,
+                'custom_subtitle_styles': features.custom_subtitle_styles,
+                'priority_support': features.priority_support,
             },
             'pro': {
                 'advanced_tts_voices': features.advanced_tts_voices,
                 'multiple_bgm_tracks': features.multiple_bgm_tracks,
                 'export_4k': features.export_4k,
                 'batch_export': features.batch_export,
-                'custom_subtitle_styles': features.custom_subtitle_styles,
                 'cross_video_segments': features.cross_video_segments,
-                'priority_support': features.priority_support,
+                'voice_cloning': features.voice_cloning,
+                'api_access': features.api_access,
+            },
+            'enterprise': {
+                'custom_branding': features.custom_branding,
+                'sso': features.sso,
+                'team_management': features.team_management,
             },
             'limits': {
                 'max_videos_per_project': features.max_videos_per_project,
                 'max_segments_per_video': features.max_segments_per_video,
                 'max_export_duration_minutes': features.max_export_duration_minutes,
                 'max_bgm_tracks': features.max_bgm_tracks,
+                'max_exports_per_month': features.max_exports_per_month,
+                'max_tts_minutes_per_month': features.max_tts_minutes_per_month,
+                'max_ai_requests_per_month': features.max_ai_requests_per_month,
+                'max_storage_mb': features.max_storage_mb,
+                'max_devices': features.max_devices,
             }
         }
 

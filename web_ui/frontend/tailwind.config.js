@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Console-inspired dark theme with red accents
+        // Console-inspired dark theme with red accents (for editor)
         terminal: {
           bg: '#0a0a0a',
           surface: '#121212',
@@ -20,6 +20,13 @@ export default {
           'red-dark': '#b91c1c',
           'red-light': '#ef4444',
           'red-glow': '#dc262680',
+          // Cyan/Blue theme for auth pages (matching website)
+          cyan: '#06b6d4',
+          'cyan-dark': '#0891b2',
+          'cyan-light': '#22d3ee',
+          'cyan-glow': '#06b6d480',
+          blue: '#2563eb',
+          'blue-dark': '#1d4ed8',
         },
         text: {
           primary: '#ffffff',

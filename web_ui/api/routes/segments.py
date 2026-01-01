@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query, Depends
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
+from config import settings
 from models import Project
 from web_ui.api.middleware.auth import get_current_user, AuthenticatedUser
 from models.segment import Segment
@@ -19,6 +20,41 @@ from web_ui.api.schemas.segment_schemas import (
 from web_ui.api.services.script_fitter import script_fitter
 
 router = APIRouter()
+
+
+def _convert_path_to_url(filepath: Optional[str]) -> Optional[str]:
+    """
+    Convert a filesystem path to a storage URL for frontend consumption.
+
+    Handles:
+    - None values (returns None)
+    - Already converted URLs (starts with /storage/)
+    - Absolute filesystem paths (extracts relative portion)
+    - Relative paths (prepends /storage/)
+    """
+    if not filepath:
+        return None
+
+    # Already a URL
+    if filepath.startswith('/storage/'):
+        return filepath
+
+    # Try to convert using STORAGE_DIR
+    try:
+        filepath_obj = Path(filepath)
+        storage_dir = Path(settings.STORAGE_DIR)
+        relative_path = filepath_obj.relative_to(storage_dir)
+        return f"/storage/{relative_path}"
+    except ValueError:
+        pass
+
+    # Fallback: extract from 'projects/' if present
+    if '/projects/' in filepath:
+        projects_index = filepath.index('/projects/')
+        return f"/storage{filepath[projects_index:]}"
+
+    # Last resort: return as-is (may not work but preserves data)
+    return filepath
 
 
 def _verify_project_ownership(project: Project, user: AuthenticatedUser) -> None:
@@ -98,8 +134,8 @@ def _segment_to_response(
         rate=segment.rate,
         volume=segment.volume,
         pitch=segment.pitch,
-        audio_path=segment.audio_path,
-        subtitle_path=segment.subtitle_path,
+        audio_path=_convert_path_to_url(segment.audio_path),
+        subtitle_path=_convert_path_to_url(segment.subtitle_path),
         # Subtitle settings
         subtitle_enabled=segment.subtitle_enabled,
         subtitle_font=segment.subtitle_font,
@@ -320,6 +356,16 @@ async def create_segments_batch(
     # SECURITY: Verify user owns this project
     _verify_project_ownership(project, user)
 
+    # Check segment limit based on subscription
+    max_segments = user.get_feature_limit("max_segments_per_video") or 5
+    current_segment_count = len(project.get_all_segments_for_timeline())
+    if current_segment_count + len(segments) > max_segments:
+        remaining = max(0, max_segments - current_segment_count)
+        raise HTTPException(
+            status_code=403,
+            detail=f"Your subscription allows maximum {max_segments} segments. You have {current_segment_count} and trying to add {len(segments)}. You can only add {remaining} more."
+        )
+
     if video_id:
         video = project.get_video(video_id)
     else:
@@ -441,6 +487,15 @@ async def create_segment(
 
     # SECURITY: Verify user owns this project
     _verify_project_ownership(project, user)
+
+    # Check segment limit based on subscription
+    max_segments = user.get_feature_limit("max_segments_per_video") or 5
+    current_segment_count = len(project.get_all_segments_for_timeline())
+    if current_segment_count >= max_segments:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Your subscription allows maximum {max_segments} segments. You have {current_segment_count}. Please upgrade to add more."
+        )
 
     # Validate timing
     if request.end_time <= request.start_time:

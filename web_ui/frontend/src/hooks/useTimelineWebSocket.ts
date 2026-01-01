@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { WS_BASE_URL } from '../api/client'
+import { useAuthStore } from '../stores/authStore'
 
 export interface VideoTimelineState {
   id: string
@@ -72,12 +73,21 @@ export function useTimelineWebSocket(
   const mountedRef = useRef(true)
   const messageQueueRef = useRef<QueuedMessage[]>([])
 
+  // Get auth token from store
+  const token = useAuthStore((state) => state.token)
+
   // Store callbacks in refs to avoid dependency changes causing reconnections
   const optionsRef = useRef(options)
   optionsRef.current = options
 
   const connect = useCallback(() => {
     if (!projectName) return
+
+    // Require authentication token
+    if (!token) {
+      console.log('[TimelineWS] No auth token available, skipping connection')
+      return
+    }
 
     // Prevent multiple simultaneous connection attempts
     if (isConnectingRef.current) {
@@ -99,8 +109,9 @@ export function useTimelineWebSocket(
       wsRef.current = null
     }
 
-    const wsUrl = `${WS_BASE_URL}/ws/timeline/${encodeURIComponent(projectName)}`
-    console.log('[TimelineWS] Connecting to:', wsUrl)
+    // Include auth token as query parameter
+    const wsUrl = `${WS_BASE_URL}/ws/timeline/${encodeURIComponent(projectName)}?token=${encodeURIComponent(token)}`
+    console.log('[TimelineWS] Connecting to:', wsUrl.replace(token, '[REDACTED]'))
 
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
@@ -210,13 +221,13 @@ export function useTimelineWebSocket(
       isConnectingRef.current = false
       optionsRef.current.onError?.('WebSocket connection error')
     }
-  }, [projectName]) // Only depend on projectName, not callbacks
+  }, [projectName, token]) // Depend on projectName and token for authentication
 
-  // Connect when project changes
+  // Connect when project or token changes
   useEffect(() => {
     mountedRef.current = true
 
-    if (projectName) {
+    if (projectName && token) {
       // Small delay to prevent rapid reconnections during React StrictMode
       const connectTimeout = setTimeout(() => {
         if (mountedRef.current) {
@@ -228,7 +239,7 @@ export function useTimelineWebSocket(
         clearTimeout(connectTimeout)
       }
     }
-  }, [projectName, connect])
+  }, [projectName, token, connect])
 
   // Cleanup on unmount
   useEffect(() => {

@@ -313,6 +313,11 @@ async def login(request: LoginRequest):
     3. Registers device if fingerprint provided
     4. Returns user info with subscription details
     """
+    # DEBUG: Log device fingerprint
+    print("=" * 50)
+    print(f"LOGIN CALLED - fingerprint: {request.device_fingerprint}")
+    print("=" * 50)
+
     # Verify the token
     decoded_token = await verify_firebase_token(request.id_token)
 

@@ -255,14 +255,25 @@ class EdgeTTSProvider(TTSProvider):
             with open(output_path, "wb") as f:
                 f.write(audio_data)
 
-            # Calculate duration from word timings or estimate
+            # Calculate duration from word timings or use ffprobe for accurate measurement
             duration = 0.0
             if word_timings:
                 last = word_timings[-1]
                 duration = (last.offset_ms + last.duration_ms) / 1000.0
             else:
-                # Estimate from audio size (rough: MP3 ~128kbps)
-                duration = len(audio_data) / (128 * 1024 / 8)
+                # Use ffprobe for accurate duration (MP3 bitrate varies)
+                import subprocess
+                try:
+                    cmd = ['ffprobe', '-v', 'quiet', '-show_entries', 'format=duration', '-of', 'csv=p=0', str(output_path)]
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0 and result.stdout.strip():
+                        duration = float(result.stdout.strip())
+                    else:
+                        # Fallback estimate if ffprobe fails
+                        duration = len(audio_data) / (48 * 1000 / 8)  # Edge TTS uses ~48kbps
+                except Exception as e:
+                    logger.warning(f"ffprobe failed, using estimate: {e}")
+                    duration = len(audio_data) / (48 * 1000 / 8)
 
             return TTSResult(
                 audio_path=str(output_path),

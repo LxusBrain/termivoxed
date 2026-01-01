@@ -16,7 +16,6 @@ import {
   ChevronUp,
   Type,
   Search,
-  ArrowRight,
   Sparkles,
   Settings,
   Heart,
@@ -24,6 +23,7 @@ import {
 } from 'lucide-react'
 import { segmentsApi, ttsApi, exportApi, fontsApi, llmApi, VoiceSample } from '../api/client'
 import { useAppStore } from '../stores/appStore'
+import { useAuthStore } from '../stores/authStore'
 import { useFavoritesStore } from '../stores/favoritesStore'
 import { useConsentStore, useTTSConsentGate } from '../stores/consentStore'
 import { TTSWarningBanner, TTSConsentRequired } from './TTSConsentModal'
@@ -109,9 +109,6 @@ export default function SegmentEditor({ projectName, segment, onClose }: Segment
   // Per-segment TTS provider (null = use global, string = use this provider)
   const [segmentProvider, setSegmentProvider] = useState<string | null>(null)
   const [useGlobalProvider, setUseGlobalProvider] = useState(false)
-
-  // Cross-video extension
-  const [extendsToNextVideo, setExtendsToNextVideo] = useState(false)
 
   // Subtitle settings
   const [showSubtitleSettings, setShowSubtitleSettings] = useState(false)
@@ -221,18 +218,26 @@ export default function SegmentEditor({ projectName, segment, onClose }: Segment
   } | null>(null)
   const saveWsRef = useRef<WebSocket | null>(null)
 
-  // Fetch voice samples for loading saved voice_sample_id
+  // Check if user has voice cloning feature
+  const hasVoiceCloning = useAuthStore((state) => state.hasFeature('voice_cloning'))
+
+  // Fetch voice samples for loading saved voice_sample_id (only if user has feature)
   const { data: voiceSamplesData } = useQuery({
     queryKey: ['voice-samples'],
     queryFn: () => ttsApi.getVoiceSamples(),
     staleTime: 30 * 1000,
+    enabled: hasVoiceCloning, // Only fetch if user has voice_cloning feature
   })
 
   const voiceSamples = voiceSamplesData?.data?.samples || []
 
-  // Sync form with segment
+  // Track the last synced segment ID to avoid re-syncing on unrelated changes
+  const lastSyncedSegmentId = useRef<string | null>(null)
+
+  // Sync form with segment - only when segment ID changes (new segment loaded)
   useEffect(() => {
-    if (segment) {
+    if (segment && segment.id !== lastSyncedSegmentId.current) {
+      lastSyncedSegmentId.current = segment.id
       setName(segment.name)
       setStartTime(segment.start_time)
       setEndTime(segment.end_time)
@@ -242,8 +247,6 @@ export default function SegmentEditor({ projectName, segment, onClose }: Segment
       setRate(segment.rate || '+0%')
       setVolume(segment.volume || '+0%')
       setPitch(segment.pitch || '+0Hz')
-      // Cross-video extension
-      setExtendsToNextVideo(segment.extends_to_next_video ?? false)
       // Subtitle settings
       setSubtitleEnabled(segment.subtitle_enabled ?? true)
       setSubtitleFont(segment.subtitle_font || 'Roboto')
@@ -256,18 +259,23 @@ export default function SegmentEditor({ projectName, segment, onClose }: Segment
       setSubtitleOutlineColor(bgrToHex(segment.subtitle_outline_color || '&H00000000'))
       setSubtitleShadow(segment.subtitle_shadow || 0)
       setSubtitleShadowColor(bgrToHex(segment.subtitle_shadow_color || '&H80000000'))
-      // Voice cloning - load saved voice sample
-      if (segment.voice_sample_id && voiceSamples.length > 0) {
-        const savedSample = voiceSamples.find(s => s.id === segment.voice_sample_id)
-        setSelectedVoiceSample(savedSample || null)
-      } else {
-        setSelectedVoiceSample(null)
-      }
       // TTS provider - use segment's saved provider if available
       setSegmentProvider(segment.tts_provider || null)
       setUseGlobalProvider(false)  // Reset to segment's provider when loading
+      // Reset voice sample selection (will be loaded by separate effect)
+      setSelectedVoiceSample(null)
     }
-  }, [segment, voiceSamples])
+  }, [segment])
+
+  // Load voice sample when voiceSamples become available (separate from main sync)
+  useEffect(() => {
+    if (segment?.voice_sample_id && voiceSamples.length > 0) {
+      const savedSample = voiceSamples.find(s => s.id === segment.voice_sample_id)
+      if (savedSample) {
+        setSelectedVoiceSample(savedSample)
+      }
+    }
+  }, [segment?.voice_sample_id, voiceSamples])
 
   // Cleanup audio on unmount
   useEffect(() => {
@@ -337,7 +345,7 @@ export default function SegmentEditor({ projectName, segment, onClose }: Segment
   const providerLanguages = providerLanguagesData?.data?.languages || []
 
   // Fetch voices from the effective provider (only if consent granted for cloud providers)
-  const { data: voicesData } = useQuery({
+  const { data: voicesData, isLoading: isLoadingVoices, isFetching: isFetchingVoices } = useQuery({
     queryKey: ['provider-voices', effectiveProvider, language],
     queryFn: () => ttsApi.getProviderVoices(effectiveProvider, language),
     enabled: !!language && !!effectiveProvider && !needsConsentGate,
@@ -362,6 +370,12 @@ export default function SegmentEditor({ projectName, segment, onClose }: Segment
       segmentsApi.update(projectName, segment!.id, data),
     onSuccess: async (response) => {
       updateSegment(segment!.id, response.data)
+
+      // Update provider state after successful save
+      if (response.data.tts_provider) {
+        setSegmentProvider(response.data.tts_provider)
+      }
+      setUseGlobalProvider(false)  // Reset switch state after save
 
       // Automatically generate audio if text and voice/voice-sample are set
       const hasText = text && text.trim().length > 0
@@ -626,6 +640,13 @@ export default function SegmentEditor({ projectName, segment, onClose }: Segment
 
   const handleSave = () => {
     if (!segment) return
+
+    // Validate: if user switched providers and has text, require a voice selection
+    if (useGlobalProvider && text.trim() && !voiceId && !selectedVoiceSample) {
+      toast.error('Please select a voice for the new provider before saving')
+      return
+    }
+
     updateMutation.mutate({
       name,
       start_time: startTime,
@@ -641,8 +662,6 @@ export default function SegmentEditor({ projectName, segment, onClose }: Segment
       // TTS provider - only send if user switched to global provider
       // This allows the backend to detect provider change and regenerate audio
       tts_provider: useGlobalProvider ? globalProvider : segmentProvider,
-      // Cross-video extension
-      extends_to_next_video: extendsToNextVideo,
       // Subtitle settings
       subtitle_enabled: subtitleEnabled,
       subtitle_font: subtitleFont,
@@ -954,39 +973,6 @@ export default function SegmentEditor({ projectName, segment, onClose }: Segment
           </div>
         </div>
 
-        {/* Cross-video extension toggle - only shown for video-specific segments */}
-        {segment.video_id && (
-          <div className="p-3 rounded-md border border-terminal-border bg-terminal-bg/30">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={extendsToNextVideo}
-                onChange={(e) => setExtendsToNextVideo(e.target.checked)}
-                className="w-4 h-4 accent-purple-500 rounded"
-              />
-              <div className="flex items-center gap-2">
-                <ArrowRight className="w-4 h-4 text-purple-400" />
-                <span className="text-sm">Extend to next video</span>
-              </div>
-            </label>
-            {extendsToNextVideo && (
-              <div className="mt-2 ml-7 text-xs text-purple-400">
-                {segment.overflow_duration ? (
-                  <span>
-                    {segment.overflow_duration.toFixed(1)}s will continue into{' '}
-                    {segment.next_video_name || 'next video'}
-                  </span>
-                ) : (
-                  <span>
-                    Segment can extend past this video&apos;s end into the next video in sequence.
-                    Set end time beyond video duration to enable.
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Text */}
         <div>
           <label className="section-header">
@@ -1272,7 +1258,7 @@ export default function SegmentEditor({ projectName, segment, onClose }: Segment
                   setUseGlobalProvider(true)
                   setVoiceId('')  // Reset voice when switching provider
                 }}
-                className="text-blue-400 hover:text-blue-300 underline"
+                className="text-blue-400 hover:text-blue-300 underline flex items-center gap-1"
               >
                 Switch to {globalProvider}
               </button>
@@ -1287,8 +1273,9 @@ export default function SegmentEditor({ projectName, segment, onClose }: Segment
         {hasDifferentProvider && useGlobalProvider && (
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-md p-2 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-blue-400">
-                Switching to <strong>{globalProvider}</strong>
+              <span className="text-blue-400 flex items-center gap-1">
+                {isFetchingVoices && <Loader2 className="w-3 h-3 animate-spin" />}
+                Switched to <strong>{globalProvider}</strong>
               </span>
               <button
                 type="button"
@@ -1297,12 +1284,15 @@ export default function SegmentEditor({ projectName, segment, onClose }: Segment
                   setVoiceId('')  // Reset voice when reverting
                 }}
                 className="text-yellow-400 hover:text-yellow-300 underline"
+                disabled={isFetchingVoices}
               >
                 Keep {segmentProvider}
               </button>
             </div>
             <p className="text-text-muted mt-1">
-              Audio will be regenerated with {globalProvider} when you save.
+              {isFetchingVoices
+                ? 'Loading voices for new provider...'
+                : 'Select a voice below. Audio will regenerate on save.'}
             </p>
           </div>
         )}
@@ -1387,32 +1377,44 @@ export default function SegmentEditor({ projectName, segment, onClose }: Segment
 
         {/* Voice */}
         <div>
-          <label className="section-header">Voice</label>
+          <label className="section-header flex items-center gap-2">
+            Voice
+            {(isLoadingVoices || isFetchingVoices) && (
+              <Loader2 className="w-3 h-3 animate-spin text-accent-red" />
+            )}
+          </label>
           <div className="flex gap-2">
             <select
               value={voiceId}
               onChange={(e) => setVoiceId(e.target.value)}
               className="input-base flex-1 min-w-0"
+              disabled={isLoadingVoices || isFetchingVoices}
             >
-              <option value="">Select a voice...</option>
-              {/* Favorites Section - only show favorites that exist in current provider */}
-              {voices.filter(v => favoriteVoices.includes(v.short_name)).length > 0 && (
-                <optgroup label="★ Favorites">
-                  {voices.filter(v => favoriteVoices.includes(v.short_name)).map((voice) => (
-                    <option key={voice.short_name} value={voice.short_name}>
-                      ♥ {formatVoiceName(voice.name)} ({voice.gender})
-                    </option>
-                  ))}
-                </optgroup>
+              {isLoadingVoices || isFetchingVoices ? (
+                <option value="">Loading voices...</option>
+              ) : (
+                <>
+                  <option value="">Select a voice...</option>
+                  {/* Favorites Section - only show favorites that exist in current provider */}
+                  {voices.filter(v => favoriteVoices.includes(v.short_name)).length > 0 && (
+                    <optgroup label="★ Favorites">
+                      {voices.filter(v => favoriteVoices.includes(v.short_name)).map((voice) => (
+                        <option key={voice.short_name} value={voice.short_name}>
+                          ♥ {formatVoiceName(voice.name)} ({voice.gender})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {/* All Voices */}
+                  <optgroup label="All Voices">
+                    {voices.filter(v => !favoriteVoices.includes(v.short_name)).map((voice) => (
+                      <option key={voice.short_name} value={voice.short_name}>
+                        {formatVoiceName(voice.name)} ({voice.gender})
+                      </option>
+                    ))}
+                  </optgroup>
+                </>
               )}
-              {/* All Voices */}
-              <optgroup label="All Voices">
-                {voices.filter(v => !favoriteVoices.includes(v.short_name)).map((voice) => (
-                  <option key={voice.short_name} value={voice.short_name}>
-                    {formatVoiceName(voice.name)} ({voice.gender})
-                  </option>
-                ))}
-              </optgroup>
             </select>
             {/* Favorite Toggle Button */}
             {voiceId && (

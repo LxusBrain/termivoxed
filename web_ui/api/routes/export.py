@@ -41,6 +41,7 @@ from web_ui.api.schemas.export_schemas import (
 )
 from config import settings
 from web_ui.api.utils.security import validate_path, validate_output_path, sanitize_filename
+from web_ui.api.utils.usage_tracker import track_usage, check_usage_limit, UsageAction
 
 router = APIRouter()
 
@@ -142,8 +143,18 @@ async def start_export(
     user: AuthenticatedUser = Depends(get_current_user)
 ):
     """Start a video export job (requires authentication)"""
-    # Check export quality feature access
-    if request.config.resolution == "4k" and not user.has_feature("export_4k"):
+    # SECURITY: Check export usage limit BEFORE starting export
+    allowed, error_msg, usage_info = check_usage_limit(user.uid, UsageAction.EXPORT, 1)
+    if not allowed:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Export limit reached. You've used {usage_info['current']} of {usage_info['limit']} exports this month. Upgrade your plan for more exports."
+        )
+
+    # Check export quality feature access (4K requires Pro tier)
+    # Note: ExportConfig uses 'quality' field (lossless/high/balanced), not 'resolution'
+    # The 4K check would apply if/when resolution field is added to the schema
+    if getattr(request.config, 'resolution', None) == "4k" and not user.has_feature("export_4k"):
         raise HTTPException(
             status_code=403,
             detail="4K export requires Pro subscription or higher"
@@ -217,6 +228,7 @@ async def start_export(
     queue_item = ExportQueueItem(
         id=export_id,
         project_name=request.project_name,
+        user_id=user.uid,  # SECURITY: Track ownership
         status="queued",
         progress=0,
         output_path=output_path,
@@ -237,7 +249,8 @@ async def start_export(
             effective_config,  # Use the config with project BGM fallback
             request.export_type,
             request.video_id,
-            user.subscription_tier.value  # Server-verified tier for watermark enforcement
+            user.subscription_tier.value,  # Server-verified tier for watermark enforcement
+            user.uid  # User ID for usage tracking
         )
     )
 
@@ -272,7 +285,8 @@ async def run_export(
     config: ExportConfig,
     export_type: str,
     video_id: str = None,
-    user_tier: str = "free_trial"
+    user_tier: str = "free_trial",
+    user_id: str = None
 ):
     """
     Run export in a separate subprocess for true non-blocking behavior.
@@ -406,6 +420,24 @@ async def run_export(
 
             logger.info(f"[Export {export_id}] COMPLETED - File: {output_path} ({file_size_mb:.1f} MB)")
 
+            # Track usage in Firebase
+            if user_id:
+                # Calculate export duration in minutes
+                total_duration = sum(v.duration or 0 for v in project.videos) / 60
+                track_usage(
+                    user_id=user_id,
+                    action=UsageAction.EXPORT,
+                    amount=1,  # Count as 1 export
+                    metadata={
+                        "export_id": export_id,
+                        "project_name": project.name,
+                        "duration_minutes": total_duration,
+                        "file_size_mb": file_size_mb,
+                        "quality": config.quality,
+                    }
+                )
+                logger.info(f"[Export {export_id}] Usage tracked for user {user_id}")
+
             await send_progress(
                 export_id, "completed",
                 f"Export completed! File size: {file_size_mb:.1f} MB", 100,
@@ -523,13 +555,23 @@ async def get_export_status(
     if export_id not in active_exports:
         raise HTTPException(status_code=404, detail="Export not found")
 
-    return active_exports[export_id]
+    item = active_exports[export_id]
+    # SECURITY: Verify ownership - users can only see their own exports
+    if item.user_id != user.uid and not user.is_admin:
+        raise HTTPException(status_code=404, detail="Export not found")
+
+    return item
 
 
 @router.get("/queue")
 async def get_export_queue(user: AuthenticatedUser = Depends(get_current_user)):
-    """Get all active exports"""
-    return {"exports": list(active_exports.values())}
+    """Get active exports for the current user"""
+    # SECURITY: Filter exports by user_id - users can only see their own exports
+    user_exports = [
+        export for export in active_exports.values()
+        if export.user_id == user.uid or user.is_admin
+    ]
+    return {"exports": user_exports}
 
 
 @router.delete("/cancel/{export_id}")
@@ -542,6 +584,9 @@ async def cancel_export(
         raise HTTPException(status_code=404, detail="Export not found")
 
     item = active_exports[export_id]
+    # SECURITY: Verify ownership - users can only cancel their own exports
+    if item.user_id != user.uid and not user.is_admin:
+        raise HTTPException(status_code=404, detail="Export not found")
     if item.status == "processing":
         # Kill the subprocess if running
         if export_id in active_processes:
@@ -1121,6 +1166,17 @@ async def generate_segment_audio(
     # Regular TTS generation
     tts_service = TTSService()
 
+    # Use segment's saved provider, or detect from voice_id prefix
+    segment_provider = getattr(segment, 'tts_provider', None)
+    if not segment_provider:
+        # Detect provider from voice_id prefix
+        if segment.voice_id.startswith("coqui_"):
+            segment_provider = "coqui"
+        elif segment.voice_id.startswith("piper_"):
+            segment_provider = "piper"
+        else:
+            segment_provider = get_default_provider().value
+
     audio_path, subtitle_path = await tts_service.generate_audio_with_provider(
         text=segment.text,
         language=segment.language,
@@ -1131,13 +1187,15 @@ async def generate_segment_audio(
         volume=segment.volume,
         pitch=segment.pitch,
         orientation=orientation,
+        provider=segment_provider,
     )
 
-    # Update segment with audio paths and provider used
+    # Update segment with audio paths (keep existing provider)
     segment.audio_path = audio_path
     segment.subtitle_path = subtitle_path
-    # Store the TTS provider used (get current default)
-    segment.tts_provider = get_default_provider().value
+    # Only set provider if not already set
+    if not getattr(segment, 'tts_provider', None):
+        segment.tts_provider = segment_provider
     project.save()
 
     duration = FFmpegUtils.get_media_duration(audio_path)
@@ -1162,8 +1220,15 @@ async def preview_segment_audio(
     param_hash = hash(f"{request.text}_{request.rate}_{request.volume}_{request.pitch}") % 100000
     segment_name = f"preview_{request.voice_id[:20]}_{param_hash}"
 
+    # Detect provider from voice_id prefix
+    if request.voice_id.startswith("coqui_"):
+        provider = "coqui"
+    elif request.voice_id.startswith("piper_"):
+        provider = "piper"
+    else:
+        provider = None  # Use default
+
     # Generate preview audio using provider-aware method
-    # This automatically detects the provider from the voice_id prefix (e.g., coqui_*)
     audio_path, _ = await tts_service.generate_audio_with_provider(
         text=request.text,
         language=request.language,
@@ -1172,7 +1237,8 @@ async def preview_segment_audio(
         segment_name=segment_name,
         rate=request.rate,
         volume=request.volume,
-        pitch=request.pitch
+        pitch=request.pitch,
+        provider=provider,
     )
 
     duration = FFmpegUtils.get_media_duration(audio_path)
@@ -1193,6 +1259,10 @@ async def download_export(
         raise HTTPException(status_code=404, detail="Export not found")
 
     item = active_exports[export_id]
+    # SECURITY: Verify ownership - users can only download their own exports
+    if item.user_id != user.uid and not user.is_admin:
+        raise HTTPException(status_code=404, detail="Export not found")
+
     if item.status != "completed" or not item.output_path:
         raise HTTPException(status_code=400, detail="Export not ready for download")
 

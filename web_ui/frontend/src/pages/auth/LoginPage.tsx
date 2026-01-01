@@ -3,6 +3,8 @@
  *
  * Handles user authentication with Firebase.
  * Supports email/password and social login.
+ *
+ * Styled to match the LxusBrain website theme.
  */
 
 import { useState, useEffect } from 'react'
@@ -11,9 +13,11 @@ import { useAuthStore, selectIsAuthenticated } from '../../stores/authStore'
 import {
   signInWithEmail,
   signInWithGoogle,
-  signInWithGithub,
+  signInWithMicrosoft,
   isFirebaseConfigured
 } from '../../lib/firebase'
+import { getPersistedDeviceFingerprint } from '../../lib/deviceFingerprint'
+import { TermiVoxedLogo } from '../../components/logos'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -45,23 +49,23 @@ export function LoginPage() {
 
     try {
       if (!isFirebaseConfigured()) {
-        // Firebase MUST be configured for authentication
         setError('Authentication service not configured. Please contact support.')
         return
       }
 
-      // Use Firebase Auth
       const userCredential = await signInWithEmail(email, password)
       const token = await userCredential.user.getIdToken()
 
-      const success = await login(token)
+      // Get device fingerprint for device tracking
+      const deviceFingerprint = getPersistedDeviceFingerprint()
+
+      const success = await login(token, deviceFingerprint)
       if (success) {
         navigate(from, { replace: true })
       }
     } catch (err: unknown) {
       console.error('Login error:', err)
       if (err instanceof Error) {
-        // Handle Firebase-specific error messages
         if (err.message.includes('user-not-found')) {
           setError('No account found with this email address.')
         } else if (err.message.includes('wrong-password')) {
@@ -96,7 +100,10 @@ export function LoginPage() {
       const userCredential = await signInWithGoogle()
       const token = await userCredential.user.getIdToken()
 
-      const success = await login(token)
+      // Get device fingerprint for device tracking
+      const deviceFingerprint = getPersistedDeviceFingerprint()
+
+      const success = await login(token, deviceFingerprint)
       if (success) {
         navigate(from, { replace: true })
       }
@@ -118,25 +125,28 @@ export function LoginPage() {
     }
   }
 
-  const handleGitHubLogin = async () => {
+  const handleMicrosoftLogin = async () => {
     setError(null)
     setLocalLoading(true)
 
     try {
       if (!isFirebaseConfigured()) {
-        setError('GitHub login will be available after Firebase configuration')
+        setError('Microsoft login will be available after Firebase configuration')
         return
       }
 
-      const userCredential = await signInWithGithub()
+      const userCredential = await signInWithMicrosoft()
       const token = await userCredential.user.getIdToken()
 
-      const success = await login(token)
+      // Get device fingerprint for device tracking
+      const deviceFingerprint = getPersistedDeviceFingerprint()
+
+      const success = await login(token, deviceFingerprint)
       if (success) {
         navigate(from, { replace: true })
       }
     } catch (err: unknown) {
-      console.error('GitHub login error:', err)
+      console.error('Microsoft login error:', err)
       if (err instanceof Error) {
         if (err.message.includes('popup-closed-by-user')) {
           setError('Login cancelled. Please try again.')
@@ -146,7 +156,7 @@ export function LoginPage() {
           setError(err.message)
         }
       } else {
-        setError('GitHub login failed. Please try again.')
+        setError('Microsoft login failed. Please try again.')
       }
     } finally {
       setLocalLoading(false)
@@ -156,29 +166,33 @@ export function LoginPage() {
   const loading = isLoading || localLoading
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 px-4">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] px-4 relative overflow-hidden">
+      {/* Background gradient effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl" />
+      </div>
+
+      <div className="max-w-md w-full relative z-10">
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <Link to="/" className="inline-block">
-            <h1 className="text-3xl font-bold text-white">
-              <span className="text-purple-500">Termi</span>Voxed
-            </h1>
+            <TermiVoxedLogo width={100} />
           </Link>
-          <p className="mt-2 text-gray-400">
+          <p className="mt-3 text-gray-400 text-sm">
             AI Voice-Over Dubbing Tool
           </p>
         </div>
 
         {/* Card */}
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-gray-700/50">
+        <div className="bg-gray-900/50 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/10">
           <h2 className="text-2xl font-semibold text-white text-center mb-6">
             Welcome Back
           </h2>
 
           {/* Error message */}
           {error && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
               {error}
             </div>
           )}
@@ -186,7 +200,7 @@ export function LoginPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
                 Email
               </label>
               <input
@@ -194,7 +208,7 @@ export function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
                 placeholder="you@example.com"
                 required
                 disabled={loading}
@@ -202,7 +216,7 @@ export function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
                 Password
               </label>
               <input
@@ -210,7 +224,7 @@ export function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2.5 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
                 placeholder="••••••••"
                 required
                 disabled={loading}
@@ -220,7 +234,7 @@ export function LoginPage() {
             <div className="flex justify-end">
               <Link
                 to="/forgot-password"
-                className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
+                className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
               >
                 Forgot password?
               </Link>
@@ -229,7 +243,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25"
             >
               {loading ? (
                 <>
@@ -245,10 +259,10 @@ export function LoginPage() {
           {/* Divider */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-600" />
+              <div className="w-full border-t border-gray-700" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gray-800/50 text-gray-400">Or continue with</span>
+              <span className="px-3 bg-gray-900/50 text-gray-500">Or continue with</span>
             </div>
           </div>
 
@@ -257,7 +271,7 @@ export function LoginPage() {
             <button
               onClick={handleGoogleLogin}
               disabled={loading}
-              className="flex items-center justify-center gap-2 py-2.5 px-4 bg-gray-700/50 hover:bg-gray-700 disabled:bg-gray-700/30 disabled:cursor-not-allowed border border-gray-600 rounded-lg text-gray-200 font-medium transition-colors"
+              className="flex items-center justify-center gap-2 py-3 px-4 bg-gray-800/50 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700 hover:border-gray-600 rounded-xl text-gray-200 font-medium transition-all"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
@@ -281,18 +295,17 @@ export function LoginPage() {
             </button>
 
             <button
-              onClick={handleGitHubLogin}
+              onClick={handleMicrosoftLogin}
               disabled={loading}
-              className="flex items-center justify-center gap-2 py-2.5 px-4 bg-gray-700/50 hover:bg-gray-700 disabled:bg-gray-700/30 disabled:cursor-not-allowed border border-gray-600 rounded-lg text-gray-200 font-medium transition-colors"
+              className="flex items-center justify-center gap-2 py-3 px-4 bg-gray-800/50 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700 hover:border-gray-600 rounded-xl text-gray-200 font-medium transition-all"
             >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z"
-                />
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#F25022" d="M1 1h10v10H1z"/>
+                <path fill="#00A4EF" d="M1 13h10v10H1z"/>
+                <path fill="#7FBA00" d="M13 1h10v10H13z"/>
+                <path fill="#FFB900" d="M13 13h10v10H13z"/>
               </svg>
-              GitHub
+              Microsoft
             </button>
           </div>
 
@@ -301,7 +314,7 @@ export function LoginPage() {
             Don't have an account?{' '}
             <Link
               to="/signup"
-              className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
+              className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
             >
               Sign up
             </Link>
@@ -311,11 +324,11 @@ export function LoginPage() {
         {/* Footer */}
         <p className="mt-6 text-center text-sm text-gray-500">
           By continuing, you agree to our{' '}
-          <a href="/terms" className="text-purple-400 hover:underline">
+          <a href="/terms" className="text-cyan-400 hover:underline">
             Terms of Service
           </a>{' '}
           and{' '}
-          <a href="/privacy" className="text-purple-400 hover:underline">
+          <a href="/privacy" className="text-cyan-400 hover:underline">
             Privacy Policy
           </a>
         </p>

@@ -103,9 +103,9 @@ function SegmentBlock({
         onClick()
       }}
       className={clsx(
-        'absolute rounded transition-colors group',
+        'absolute rounded transition-all group',
         'border-2 flex items-center overflow-hidden',
-        isDragging && 'opacity-80',
+        isDragging && 'opacity-90 ring-2 ring-accent-red/50 ring-offset-1 ring-offset-transparent shadow-lg z-20',
         isSelected
           ? 'bg-accent-red/30 border-accent-red shadow-glow-red-sm z-10'
           : 'bg-terminal-elevated border-terminal-border hover:border-accent-red/50'
@@ -124,14 +124,14 @@ function SegmentBlock({
         className={clsx(
           'absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize z-20',
           'flex items-center justify-center',
-          'hover:bg-accent-red/30 transition-colors'
+          'hover:bg-accent-red/40 active:bg-accent-red/60 transition-colors'
         )}
         onMouseDown={(e) => {
           e.stopPropagation()
           onDragStart(e, 'resize-start')
         }}
       >
-        <div className="w-0.5 h-4 bg-accent-red/50 rounded opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="w-0.5 h-4 bg-accent-red/40 rounded opacity-30 group-hover:opacity-100 group-hover:bg-accent-red transition-all" />
       </div>
 
       {/* Center content - drag to move */}
@@ -157,14 +157,14 @@ function SegmentBlock({
         className={clsx(
           'absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize z-20',
           'flex items-center justify-center',
-          'hover:bg-accent-red/30 transition-colors'
+          'hover:bg-accent-red/40 active:bg-accent-red/60 transition-colors'
         )}
         onMouseDown={(e) => {
           e.stopPropagation()
           onDragStart(e, 'resize-end')
         }}
       >
-        <div className="w-0.5 h-4 bg-accent-red/50 rounded opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="w-0.5 h-4 bg-accent-red/40 rounded opacity-30 group-hover:opacity-100 group-hover:bg-accent-red transition-all" />
       </div>
 
       {/* Overflow warning */}
@@ -186,9 +186,9 @@ function SegmentBlock({
 
       {/* Time display on hover/drag */}
       {(isSelected || isDragging) && (
-        <div className="absolute -bottom-5 left-0 right-0 flex justify-between text-[9px] font-mono text-text-muted pointer-events-none">
-          <span>{startTime.toFixed(1)}s</span>
-          <span>{endTime.toFixed(1)}s</span>
+        <div className="absolute -bottom-5 left-0 right-0 flex justify-between text-[9px] font-mono text-accent-red/80 pointer-events-none z-30">
+          <span className="bg-terminal-bg/90 px-0.5 rounded">{startTime.toFixed(1)}s</span>
+          <span className="bg-terminal-bg/90 px-0.5 rounded">{endTime.toFixed(1)}s</span>
         </div>
       )}
     </motion.div>
@@ -1664,8 +1664,10 @@ export default function Timeline({
       const currentSegment = segments.find(s => s.id === dragState.segmentId)
       if (!currentSegment) return
 
-      // Use correct ref based on view mode - Voice Over track for combined mode, timeline for single
-      const trackRef = (hasMultipleVideos && viewMode === 'combined') ? voiceOverTrackRef : timelineRef
+      // Use correct ref based on view mode:
+      // - Multi-video + single view mode: segments are in Segments track (timelineRef)
+      // - Single-video OR multi-video + combined mode: segments are in Voice Over track (voiceOverTrackRef)
+      const trackRef = (hasMultipleVideos && viewMode === 'single') ? timelineRef : voiceOverTrackRef
       if (!trackRef.current) return
 
       const rect = trackRef.current.getBoundingClientRect()

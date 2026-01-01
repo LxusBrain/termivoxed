@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { projectsApi, segmentsApi, exportApi, videosApi, ttsApi, WS_BASE_URL, type BGMTrack } from '../api/client'
 import { useAppStore } from '../stores/appStore'
+import { useAuthStore } from '../stores/authStore'
 import { useDebugStore } from '../stores/debugStore'
 import { useProviderStatus } from '../hooks/useProviderStatus'
 import VideoPlayer from '../components/VideoPlayer'
@@ -716,23 +717,22 @@ function ExportModal({
         console.log('Starting polling fallback for export status')
         pollInterval = setInterval(async () => {
           try {
-            const statusRes = await fetch(`/api/v1/export/status/${exportId}`)
-            if (statusRes.ok) {
-              const status = await statusRes.json()
-              if (status.status === 'completed') {
-                setExportProgress({ stage: 'completed', message: 'Export completed!', progress: 100, output_path: status.output_path })
-                setExportCompleted(true)
-                setIsExporting(false)
-                toast.success('Export completed!')
-                if (pollInterval) clearInterval(pollInterval)
-              } else if (status.status === 'failed') {
-                setExportProgress({ stage: 'error', message: status.error || 'Export failed', progress: 0 })
-                setIsExporting(false)
-                toast.error(status.error || 'Export failed')
-                if (pollInterval) clearInterval(pollInterval)
-              } else {
-                setExportProgress({ stage: status.current_stage || 'processing', message: status.current_detail || 'Processing...', progress: status.progress || 0 })
-              }
+            // Use exportApi.getStatus() instead of raw fetch() to include auth headers
+            const statusRes = await exportApi.getStatus(exportId)
+            const status = statusRes.data
+            if (status.status === 'completed') {
+              setExportProgress({ stage: 'completed', message: 'Export completed!', progress: 100, output_path: status.output_path })
+              setExportCompleted(true)
+              setIsExporting(false)
+              toast.success('Export completed!')
+              if (pollInterval) clearInterval(pollInterval)
+            } else if (status.status === 'failed') {
+              setExportProgress({ stage: 'error', message: status.error || 'Export failed', progress: 0 })
+              setIsExporting(false)
+              toast.error(status.error || 'Export failed')
+              if (pollInterval) clearInterval(pollInterval)
+            } else {
+              setExportProgress({ stage: status.current_stage || 'processing', message: status.current_detail || 'Processing...', progress: status.progress || 0 })
             }
           } catch (e) {
             console.error('Polling error:', e)
@@ -1229,6 +1229,7 @@ export default function ProjectPage() {
   const { projectName } = useParams<{ projectName: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const authToken = useAuthStore((state) => state.token)
 
   const {
     setCurrentProject,
@@ -1269,7 +1270,7 @@ export default function ProjectPage() {
   })
 
   const project: Project | undefined = projectData?.data
-  const activeVideo = project?.videos.find((v) => v.id === project.active_video_id)
+  const activeVideo = project?.videos?.find((v) => v.id === project.active_video_id)
 
   // Fetch segments - always fetch all segments for multi-video timeline support
   const { data: segmentsData } = useQuery({
@@ -1353,7 +1354,7 @@ export default function ProjectPage() {
   // Helper to get video name by id
   const getVideoName = (videoId: string | null) => {
     if (!videoId || !project?.videos) return null
-    const video = project.videos.find(v => v.id === videoId)
+    const video = project.videos?.find(v => v.id === videoId)
     return video?.name || null
   }
 
@@ -1484,7 +1485,8 @@ export default function ProjectPage() {
     )
   }
 
-  const videoUrl = `/api/v1/videos/${projectName}/${effectiveActiveVideo.id}/stream`
+  const baseVideoUrl = `/api/v1/videos/${projectName}/${effectiveActiveVideo.id}/stream`
+  const videoUrl = authToken ? `${baseVideoUrl}?token=${encodeURIComponent(authToken)}` : baseVideoUrl
   const videoDuration = effectiveActiveVideo.duration || 0
 
   return (
@@ -1536,7 +1538,7 @@ export default function ProjectPage() {
       {/* Video Manager Panel */}
       <VideoManagerPanel
         projectName={projectName!}
-        videos={project.videos.map(v => ({
+        videos={(project?.videos || []).map(v => ({
           id: v.id,
           name: v.name,
           path: v.path,
@@ -1546,7 +1548,7 @@ export default function ProjectPage() {
           segments_count: v.segments_count,
           file_exists: v.file_exists,
         }))}
-        activeVideoId={project.active_video_id}
+        activeVideoId={project?.active_video_id}
         onRefresh={() => {
           queryClient.invalidateQueries({ queryKey: ['project', projectName] })
           queryClient.invalidateQueries({ queryKey: ['segments', projectName] })
@@ -1729,7 +1731,7 @@ export default function ProjectPage() {
           startTime={addSegmentAt}
           videoDuration={
             addSegmentVideoId
-              ? (project?.videos.find(v => v.id === addSegmentVideoId)?.duration || videoDuration)
+              ? (project?.videos?.find(v => v.id === addSegmentVideoId)?.duration || videoDuration)
               : hasMultipleVideos
                 ? totalTimelineDuration  // Use total timeline duration for generic segments in multi-video
                 : videoDuration  // Use single video duration

@@ -468,7 +468,7 @@ export default function SettingsPage() {
             <button
               onClick={() => {
                 // Close banner without discarding
-                toast('Save each field using the save button next to it', { icon: 'i' })
+                toast('Save each field using the save button next to it')
               }}
               className="p-1.5 hover:bg-black/10 rounded transition-colors"
               title="Close"
@@ -1675,14 +1675,6 @@ export default function SettingsPage() {
           </p>
           <div className="flex items-center justify-center gap-4 text-xs text-text-muted">
             <span>Version 1.0.0</span>
-            <span className="text-terminal-border">•</span>
-            <a href="#" className="text-accent-red hover:underline">
-              Documentation
-            </a>
-            <span className="text-terminal-border">•</span>
-            <a href="#" className="text-accent-red hover:underline">
-              GitHub
-            </a>
           </div>
         </div>
       </SettingsSection>

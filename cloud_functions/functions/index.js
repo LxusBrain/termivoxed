@@ -244,6 +244,7 @@ const TIER_CONFIG = {
     maxExportsPerMonth: 2,
     maxTtsMinutesPerMonth: 10,
     maxAiGenerationsPerMonth: 3,
+    maxVoiceCloningsPerMonth: 1,
     maxVideoDurationMinutes: 5,
     features: {
       basic_export: true,
@@ -261,6 +262,7 @@ const TIER_CONFIG = {
     maxExportsPerMonth: 10,
     maxTtsMinutesPerMonth: 60,
     maxAiGenerationsPerMonth: 20,
+    maxVoiceCloningsPerMonth: 3,
     maxVideoDurationMinutes: 30,
     features: {
       basic_export: true,
@@ -278,6 +280,7 @@ const TIER_CONFIG = {
     maxExportsPerMonth: -1, // Unlimited
     maxTtsMinutesPerMonth: -1,
     maxAiGenerationsPerMonth: -1,
+    maxVoiceCloningsPerMonth: -1, // Unlimited
     maxVideoDurationMinutes: -1,
     features: {
       basic_export: true,
@@ -295,6 +298,7 @@ const TIER_CONFIG = {
     maxExportsPerMonth: -1,
     maxTtsMinutesPerMonth: -1,
     maxAiGenerationsPerMonth: -1,
+    maxVoiceCloningsPerMonth: -1, // Unlimited
     maxVideoDurationMinutes: -1,
     features: {
       basic_export: true,
@@ -315,6 +319,7 @@ const TIER_CONFIG = {
     maxExportsPerMonth: -1,
     maxTtsMinutesPerMonth: -1,
     maxAiGenerationsPerMonth: -1,
+    maxVoiceCloningsPerMonth: -1, // Unlimited
     maxVideoDurationMinutes: -1,
     features: {
       basic_export: true,
@@ -392,11 +397,13 @@ exports.onUserCreated = functions.auth.user().onCreate(async (user) => {
       maxTtsMinutesPerMonth: TIER_CONFIG.FREE_TRIAL.maxTtsMinutesPerMonth,
       maxAiGenerationsPerMonth: TIER_CONFIG.FREE_TRIAL.maxAiGenerationsPerMonth,
       maxVideoDurationMinutes: TIER_CONFIG.FREE_TRIAL.maxVideoDurationMinutes,
+      maxVoiceCloningsPerMonth: TIER_CONFIG.FREE_TRIAL.maxVoiceCloningsPerMonth,
     },
     usageThisMonth: {
       exportsCount: 0,
       ttsMinutes: 0,
       aiGenerations: 0,
+      voiceClonings: 0,
     },
     history: [
       {
@@ -975,7 +982,7 @@ exports.trackUsage = functions.https.onCall(async (data, context) => {
   const { action, amount, metadata } = data;
 
   // Validate action
-  const validActions = ["export", "tts_minute", "ai_generation"];
+  const validActions = ["export", "tts_minute", "ai_generation", "voice_cloning"];
   if (!action || typeof action !== "string" || !validActions.includes(action)) {
     throw new functions.https.HttpsError(
       "invalid-argument",
@@ -1036,6 +1043,11 @@ exports.trackUsage = functions.https.onCall(async (data, context) => {
       limit = limits.maxAiGenerationsPerMonth;
       usageField = "usageThisMonth.aiGenerations";
       break;
+    case "voice_cloning":
+      currentUsage = usage.voiceClonings || 0;
+      limit = limits.maxVoiceCloningsPerMonth;
+      usageField = "usageThisMonth.voiceClonings";
+      break;
   }
 
   // Check if limit exceeded
@@ -1088,6 +1100,7 @@ exports.resetMonthlyUsage = functions.pubsub.schedule("0 0 1 * *").onRun(async (
         exportsCount: 0,
         ttsMinutes: 0,
         aiGenerations: 0,
+        voiceClonings: 0,
       },
     });
   });

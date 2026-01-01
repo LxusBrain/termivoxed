@@ -2,6 +2,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom'
 import { Home, Settings, Activity, Monitor, Cloud } from 'lucide-react'
 import clsx from 'clsx'
 import { useProviderStatus } from '../hooks/useProviderStatus'
+import UserMenu from './UserMenu'
 
 function StatusIndicator({
   status,
@@ -132,6 +133,11 @@ export default function Layout() {
             <Activity className="w-3.5 h-3.5 text-accent-red" />
             <span className="font-mono">READY</span>
           </div>
+
+          <div className="h-4 w-px bg-terminal-border" />
+
+          {/* User Menu */}
+          <UserMenu />
         </div>
       </header>
 

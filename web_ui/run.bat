@@ -1,6 +1,9 @@
 @echo off
 REM TermiVoxed Web UI - Startup Script (Windows)
 REM This script starts both the backend API and frontend dev server
+REM
+REM SAFE PORT HANDLING: This script finds available ports instead of killing
+REM existing processes. It never terminates other applications.
 
 setlocal enabledelayedexpansion
 
@@ -82,34 +85,67 @@ if not exist "node_modules" (
 cd /d "%SCRIPT_DIR%"
 
 echo.
+echo Finding available ports...
+
+REM Find available backend port (starting from 8000)
+set "BACKEND_PORT=8000"
+:find_backend_port
+netstat -an | find ":%BACKEND_PORT% " | find "LISTENING" >nul
+if %ERRORLEVEL% equ 0 (
+    echo   Port %BACKEND_PORT% is in use, trying next...
+    set /a BACKEND_PORT+=1
+    if %BACKEND_PORT% gtr 8009 (
+        echo Error: Could not find available port for backend
+        exit /b 1
+    )
+    goto find_backend_port
+)
+echo   Backend port: %BACKEND_PORT%
+
+REM Find available frontend port (starting from 5173)
+set "FRONTEND_PORT=5173"
+:find_frontend_port
+netstat -an | find ":%FRONTEND_PORT% " | find "LISTENING" >nul
+if %ERRORLEVEL% equ 0 (
+    echo   Port %FRONTEND_PORT% is in use, trying next...
+    set /a FRONTEND_PORT+=1
+    if %FRONTEND_PORT% gtr 5182 (
+        echo Error: Could not find available port for frontend
+        exit /b 1
+    )
+    goto find_frontend_port
+)
+echo   Frontend port: %FRONTEND_PORT%
+
+echo.
 echo Starting TermiVoxed Web UI...
 echo.
 
-REM Start backend in a new window
-echo Starting API server on http://localhost:8000
-start "TermiVoxed API" cmd /c "cd /d %PROJECT_ROOT% && python -m uvicorn web_ui.api.main:app --host 0.0.0.0 --port 8000 --reload"
+REM Start backend in a new window with dynamic port
+echo Starting API server on http://localhost:%BACKEND_PORT%
+start "TermiVoxed API" cmd /c "cd /d %PROJECT_ROOT% && python -m uvicorn web_ui.api.main:app --host 0.0.0.0 --port %BACKEND_PORT% --reload"
 
 REM Wait for backend to start
 timeout /t 3 /nobreak >nul
 
-REM Start frontend in a new window
-echo Starting frontend on http://localhost:5173
-start "TermiVoxed Frontend" cmd /c "cd /d %SCRIPT_DIR%frontend && npm run dev"
+REM Start frontend in a new window with dynamic ports
+echo Starting frontend on http://localhost:%FRONTEND_PORT%
+start "TermiVoxed Frontend" cmd /c "cd /d %SCRIPT_DIR%frontend && set VITE_BACKEND_PORT=%BACKEND_PORT% && npm run dev -- --port %FRONTEND_PORT%"
 
 echo.
 echo ===============================================
 echo   TermiVoxed Web UI is starting!
 echo ===============================================
 echo.
-echo   Frontend:  http://localhost:5173
-echo   API:       http://localhost:8000
-echo   API Docs:  http://localhost:8000/docs
+echo   Frontend:  http://localhost:%FRONTEND_PORT%
+echo   API:       http://localhost:%BACKEND_PORT%
+echo   API Docs:  http://localhost:%BACKEND_PORT%/docs
 echo.
 echo   Close the command windows to stop the servers.
 echo.
 
 REM Open browser after a short delay
 timeout /t 5 /nobreak >nul
-start http://localhost:5173
+start http://localhost:%FRONTEND_PORT%
 
 endlocal
