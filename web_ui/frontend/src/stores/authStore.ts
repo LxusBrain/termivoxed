@@ -8,7 +8,44 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { api } from '../api/client'
-import { onAuthChange, logOut as firebaseLogOut, isFirebaseConfigured, getIdToken } from '../lib/firebase'
+import { onAuthChange, logOut as firebaseLogOut, isFirebaseConfigured, getIdToken, onSubscriptionChange } from '../lib/firebase'
+import type { Unsubscribe } from '../lib/firebase'
+import { getApiErrorMessage } from '../utils/errorMessages'
+import { useAppStore } from './appStore'
+import { queryClient } from '../lib/queryClient'
+
+// Store for subscription listener unsubscribe function
+let subscriptionUnsubscribe: Unsubscribe | null = null
+
+/**
+ * Set up real-time subscription listener for a user
+ * This ensures the UI updates when subscription changes (e.g., after payment)
+ */
+function setupSubscriptionListener(uid: string, setSubscription: (sub: Subscription | null) => void) {
+  // Clean up existing listener first
+  if (subscriptionUnsubscribe) {
+    subscriptionUnsubscribe()
+    subscriptionUnsubscribe = null
+  }
+
+  // Set up new listener
+  if (isFirebaseConfigured()) {
+    subscriptionUnsubscribe = onSubscriptionChange(uid, (subData) => {
+      console.log('[AUTH] Subscription updated from Firestore:', subData.tier, subData.status)
+
+      // Get current subscription to preserve features
+      const currentSub = useAuthStore.getState().subscription
+
+      setSubscription({
+        tier: subData.tier as Subscription['tier'],
+        status: subData.status as Subscription['status'],
+        expiresAt: subData.expiresAt,
+        // Preserve features from API response, or use defaults based on tier
+        features: currentSub?.features || defaultFeatures,
+      })
+    })
+  }
+}
 
 // ============================================================================
 // Types
@@ -247,11 +284,15 @@ export const useAuthStore = create<AuthState>()(
             )
           }
 
+          // Set up real-time subscription listener for this user
+          // This ensures the UI updates when subscription changes (e.g., after payment on lxusbrain-website)
+          setupSubscriptionListener(data.uid, setSubscription)
+
           setLoading(false)
           return true
         } catch (error) {
           console.error('Login error:', error)
-          setError(error instanceof Error ? error.message : 'Login failed')
+          setError(getApiErrorMessage(error))
           setLoading(false)
           return false
         }
@@ -261,6 +302,12 @@ export const useAuthStore = create<AuthState>()(
         const { setToken, setUser, setSubscription, setDevices, setLoading } = get()
 
         setLoading(true)
+
+        // Clean up subscription listener
+        if (subscriptionUnsubscribe) {
+          subscriptionUnsubscribe()
+          subscriptionUnsubscribe = null
+        }
 
         try {
           // Notify backend of logout
@@ -280,12 +327,23 @@ export const useAuthStore = create<AuthState>()(
           // Continue with local logout even if Firebase request fails
         }
 
-        // Clear local state
+        // Clear local auth state
         setToken(null)
         setUser(null)
         setSubscription(null)
         setDevices([])
         setLoading(false)
+
+        // CRITICAL: Clear app state to prevent cross-user data leakage
+        // This must be done AFTER clearing auth state to ensure components
+        // that depend on auth don't try to refetch with stale credentials
+        useAppStore.getState().clearAllState()
+
+        // Clear React Query cache to prevent stale data from previous user
+        // This ensures no cached API responses leak between users
+        queryClient.clear()
+
+        console.log('[AUTH] Logout complete - cleared auth, app state, and query cache')
       },
 
       refreshUser: async () => {
@@ -480,6 +538,9 @@ export const useAuthStore = create<AuthState>()(
                 }))
               )
             }
+
+            // Set up real-time subscription listener for this user
+            setupSubscriptionListener(data.uid, setSubscription)
           } catch (error) {
             console.error('Token validation failed:', error)
 
@@ -524,6 +585,9 @@ export const useAuthStore = create<AuthState>()(
                       }))
                     )
                   }
+
+                  // Set up real-time subscription listener for this user
+                  setupSubscriptionListener(data.uid, setSubscription)
 
                   // Successfully refreshed - skip the logout
                   setLoading(false)

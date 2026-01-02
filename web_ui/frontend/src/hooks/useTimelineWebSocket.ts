@@ -61,6 +61,18 @@ interface QueuedMessage {
 const MAX_QUEUE_SIZE = 50
 const MESSAGE_EXPIRY_MS = 30000 // Discard messages older than 30 seconds
 
+// Reconnection configuration
+const INITIAL_RECONNECT_DELAY_MS = 1000 // Start with 1 second
+const MAX_RECONNECT_DELAY_MS = 30000 // Cap at 30 seconds
+const MAX_RECONNECT_ATTEMPTS = 10 // Stop trying after 10 failures
+const BACKOFF_MULTIPLIER = 1.5 // Exponential backoff factor
+
+// WebSocket close codes that indicate auth failures (don't reconnect)
+const AUTH_FAILURE_CODES = [
+  4001, // Unauthorized
+  4003, // Access denied / forbidden
+]
+
 export function useTimelineWebSocket(
   projectName: string | null,
   options: UseTimelineWebSocketOptions = {}
@@ -72,6 +84,11 @@ export function useTimelineWebSocket(
   const isConnectingRef = useRef(false)
   const mountedRef = useRef(true)
   const messageQueueRef = useRef<QueuedMessage[]>([])
+
+  // Reconnection state with exponential backoff
+  const reconnectAttemptsRef = useRef(0)
+  const currentDelayRef = useRef(INITIAL_RECONNECT_DELAY_MS)
+  const authFailureRef = useRef(false) // Track if we failed due to auth
 
   // Get auth token from store
   const token = useAuthStore((state) => state.token)
@@ -121,6 +138,11 @@ export function useTimelineWebSocket(
       console.log('[TimelineWS] Connected')
       setIsConnected(true)
       isConnectingRef.current = false
+
+      // Reset reconnection state on successful connection
+      reconnectAttemptsRef.current = 0
+      currentDelayRef.current = INITIAL_RECONNECT_DELAY_MS
+      authFailureRef.current = false
 
       // Flush queued messages on reconnect
       const now = Date.now()
@@ -202,17 +224,50 @@ export function useTimelineWebSocket(
       setIsConnected(false)
       isConnectingRef.current = false
 
-      // Attempt to reconnect after 3 seconds (unless intentional close or unmounted)
-      if (event.code !== 1000 && mountedRef.current) {
+      // Don't reconnect on intentional close
+      if (event.code === 1000) {
+        console.log('[TimelineWS] Clean close, not reconnecting')
+        return
+      }
+
+      // Don't reconnect on auth failures - these require user action
+      if (AUTH_FAILURE_CODES.includes(event.code)) {
+        console.log('[TimelineWS] Auth failure (code', event.code, '), not reconnecting')
+        authFailureRef.current = true
+        optionsRef.current.onError?.(`Authentication failed: ${event.reason || 'Access denied'}. Please log in again.`)
+        return
+      }
+
+      // Check if we've exceeded max retry attempts
+      if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+        console.log('[TimelineWS] Max reconnection attempts reached, giving up')
+        optionsRef.current.onError?.('Connection lost. Please refresh the page to reconnect.')
+        return
+      }
+
+      // Schedule reconnection with exponential backoff
+      if (mountedRef.current) {
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current)
         }
+
+        const delay = currentDelayRef.current
+        reconnectAttemptsRef.current += 1
+        currentDelayRef.current = Math.min(
+          delay * BACKOFF_MULTIPLIER,
+          MAX_RECONNECT_DELAY_MS
+        )
+
+        console.log(
+          `[TimelineWS] Scheduling reconnect attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS} in ${delay}ms`
+        )
+
         reconnectTimeoutRef.current = setTimeout(() => {
-          if (mountedRef.current) {
+          if (mountedRef.current && !authFailureRef.current) {
             console.log('[TimelineWS] Attempting reconnect...')
             connect()
           }
-        }, 3000)
+        }, delay)
       }
     }
 
@@ -228,6 +283,9 @@ export function useTimelineWebSocket(
     mountedRef.current = true
 
     if (projectName && token) {
+      // Reset auth failure flag when we get a new token
+      authFailureRef.current = false
+
       // Small delay to prevent rapid reconnections during React StrictMode
       const connectTimeout = setTimeout(() => {
         if (mountedRef.current) {
@@ -240,6 +298,34 @@ export function useTimelineWebSocket(
       }
     }
   }, [projectName, token, connect])
+
+  // Close WebSocket immediately when token becomes null (logout)
+  // This prevents stale connections from continuing to retry
+  useEffect(() => {
+    if (!token) {
+      console.log('[TimelineWS] Token cleared, closing connection')
+
+      // Clear any pending reconnection attempts
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current)
+        reconnectTimeoutRef.current = null
+      }
+
+      // Close existing WebSocket
+      if (wsRef.current) {
+        wsRef.current.close(1000, 'Token cleared')
+        wsRef.current = null
+      }
+
+      // Reset state
+      setIsConnected(false)
+      setLastState(null)
+      isConnectingRef.current = false
+      reconnectAttemptsRef.current = 0
+      currentDelayRef.current = INITIAL_RECONNECT_DELAY_MS
+      messageQueueRef.current = []
+    }
+  }, [token])
 
   // Cleanup on unmount
   useEffect(() => {

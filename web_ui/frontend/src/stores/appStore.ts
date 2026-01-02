@@ -53,6 +53,9 @@ interface AppState {
   isCheckingAvailability: boolean
   setIsCheckingAvailability: (checking: boolean) => void
   resetAvailabilityState: () => void
+
+  // Clear all state (called on logout to prevent cross-user data leakage)
+  clearAllState: () => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -137,6 +140,25 @@ export const useAppStore = create<AppState>((set) => ({
   setIsCheckingAvailability: (checking) => set({ isCheckingAvailability: checking }),
   resetAvailabilityState: () =>
     set({
+      videoAvailability: new Map(),
+      availabilityChecked: false,
+      isCheckingAvailability: false,
+    }),
+
+  // Clear all state on logout to prevent cross-user data leakage
+  clearAllState: () =>
+    set({
+      currentProject: null,
+      activeVideoId: null,
+      segments: [],
+      currentTime: 0,
+      isPlaying: false,
+      selectedSegmentId: null,
+      exportProgress: null,
+      isExporting: false,
+      isGeneratingScript: false,
+      sidebarOpen: true,
+      aiPanelOpen: false,
       videoAvailability: new Map(),
       availabilityChecked: false,
       isCheckingAvailability: false,

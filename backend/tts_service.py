@@ -241,6 +241,46 @@ class TTSService:
         """Get list of all currently healthy providers."""
         return self._resilience_manager.get_healthy_providers()
 
+    def detect_provider_from_voice(self, voice_id: Optional[str]) -> Optional[str]:
+        """
+        Detect the appropriate TTS provider based on voice_id prefix/format.
+
+        Voice ID conventions:
+        - Coqui built-in voices: "coqui_speaker_name" (e.g., "coqui_claribel_dervla")
+        - Cloned voices: "cloned_voice_name" (uses Coqui for voice cloning)
+        - Piper voices: "piper_model_name" (e.g., "piper_en_us_libritts")
+        - Edge TTS voices: Locale format "{lang}-{region}-{name}Neural"
+          Examples: "en-US-AvaMultilingualNeural", "hi-IN-MadhurNeural",
+                    "fr-FR-VivienneMultilingualNeural", "ja-JP-NanamiNeural"
+
+        Args:
+            voice_id: The voice identifier string
+
+        Returns:
+            Provider name ("coqui", "piper", "edge_tts") or None if not detectable
+        """
+        if not voice_id:
+            return None
+
+        # Coqui built-in speakers (e.g., coqui_claribel_dervla)
+        if voice_id.startswith("coqui_"):
+            return "coqui"
+
+        # Cloned voices use Coqui TTS for voice cloning
+        if voice_id.startswith("cloned_"):
+            return "coqui"
+
+        # Piper TTS voices
+        if voice_id.startswith("piper_"):
+            return "piper"
+
+        # Edge TTS voices use locale format: {lang}-{region}-{name}Neural
+        # Examples: en-US-AvaMultilingualNeural, hi-IN-MadhurNeural,
+        #           fr-FR-VivienneMultilingualNeural, ko-KR-SunHiNeural
+        # All Edge TTS voices end with "Neural" suffix
+        # Default to edge_tts for any voice without a known prefix
+        return "edge_tts"
+
     async def generate_with_resilience(
         self,
         text: str,
@@ -254,6 +294,8 @@ class TTSService:
         orientation: str = 'horizontal',
         provider: Optional[str] = None,
         fallback_providers: Optional[List[str]] = None,
+        voice_sample_id: Optional[str] = None,
+        additional_sample_ids: Optional[List[str]] = None,
     ) -> Tuple[str, Optional[str]]:
         """
         Generate TTS audio with full resilience support.
@@ -271,11 +313,57 @@ class TTSService:
             orientation: Video orientation
             provider: Primary provider to use
             fallback_providers: List of fallback provider names
+            voice_sample_id: Voice sample ID for voice cloning (Coqui only)
+            additional_sample_ids: Additional voice samples for better cloning
 
         Returns:
             Tuple of (audio_path, subtitle_path)
         """
-        provider_name = provider or self.get_current_provider()
+        # CRITICAL: Voice cloning takes absolute precedence - always uses Coqui
+        if voice_sample_id:
+            # Voice cloning is handled directly by generate_audio_with_provider
+            # No resilience fallback for voice cloning (can't fall back to different provider)
+            return await self.generate_audio_with_provider(
+                text=text,
+                language=language,
+                voice=voice,
+                project_name=project_name,
+                segment_name=segment_name,
+                rate=rate,
+                volume=volume,
+                pitch=pitch,
+                orientation=orientation,
+                provider="coqui",  # Voice cloning requires Coqui
+                voice_sample_id=voice_sample_id,
+                additional_sample_ids=additional_sample_ids,
+            )
+
+        # CRITICAL: Determine provider based on voice_id prefix FIRST
+        # This ensures Coqui voices use Coqui provider, not the global default
+        if provider:
+            # Explicit provider requested - use it
+            provider_name = provider
+        elif voice:
+            # Detect provider from voice_id prefix (coqui_, piper_, or edge_tts format)
+            detected_provider = self.detect_provider_from_voice(voice)
+            if detected_provider:
+                provider_name = detected_provider
+                logger.debug(f"Auto-detected provider '{provider_name}' from voice_id '{voice}'")
+            else:
+                provider_name = self.get_current_provider()
+        else:
+            # No voice specified - use global default
+            provider_name = self.get_current_provider()
+
+        # Build appropriate fallback list based on detected provider
+        if fallback_providers is None:
+            # Auto-generate fallback list with detected provider first
+            if provider_name == "coqui":
+                fallback_providers = ["coqui", "edge_tts"]
+            elif provider_name == "piper":
+                fallback_providers = ["piper", "edge_tts"]
+            else:
+                fallback_providers = ["edge_tts", "coqui"]
 
         # Define the generation operation
         async def generate_operation():
@@ -1060,8 +1148,19 @@ class TTSService:
                     additional_sample_ids=additional_sample_ids or [],
                 )
 
+            # CRITICAL: Determine provider from voice_id if not explicitly specified
+            # This ensures Coqui voices use Coqui provider, not the global default
+            effective_provider = provider
+            if not effective_provider and voice:
+                detected_provider = self.detect_provider_from_voice(voice)
+                if detected_provider:
+                    effective_provider = detected_provider
+                    logger.debug(
+                        f"Auto-detected provider '{effective_provider}' from voice_id '{voice}'"
+                    )
+
             # Get the appropriate provider
-            tts_provider = await self.get_provider_for_generation(provider)
+            tts_provider = await self.get_provider_for_generation(effective_provider)
 
             # Get voice if not specified
             selected_voice = voice
@@ -1118,7 +1217,21 @@ class TTSService:
 
         except Exception as e:
             logger.error(f"Provider generation failed: {e}")
-            # Fall back to legacy Edge TTS method
+
+            # CRITICAL FIX: Only fall back to legacy Edge TTS for Edge TTS voices
+            # Do NOT fall back to Edge TTS for Coqui/Piper voices - it will fail!
+            detected_provider = self.detect_provider_from_voice(voice)
+
+            if detected_provider and detected_provider != "edge_tts":
+                # This is a Coqui/Piper voice - do NOT fall back to Edge TTS
+                # Re-raise the exception so resilience manager can handle it properly
+                logger.error(
+                    f"Cannot fall back to Edge TTS for {detected_provider} voice '{voice}'. "
+                    f"Voice format is incompatible with Edge TTS."
+                )
+                raise
+
+            # Only fall back to legacy Edge TTS for Edge TTS-compatible voices
             logger.info("Falling back to legacy Edge TTS generation")
             return await self.generate_audio(
                 text=text,

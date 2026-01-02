@@ -126,9 +126,11 @@ export default function VoiceSelector({
   const handlePreview = async () => {
     if (!voiceId || !text.trim() || isLoadingPreview) return
 
-    // Check TTS consent before generating preview
-    const hasConsent = await checkTTSConsent()
-    if (!hasConsent) return
+    // Only check TTS consent for cloud providers - local providers (Coqui, Piper) don't need consent
+    if (requiresConsent) {
+      const hasConsent = await checkTTSConsent()
+      if (!hasConsent) return
+    }
 
     setIsLoadingPreview(true)
     try {

@@ -278,8 +278,9 @@ async def handle_video_position(project_name: str, data: dict) -> dict:
 
         # Validate and update timeline position
         if timeline_start is not None:
-            # Can't go below 0, round to millisecond precision
-            timeline_start = round(max(0, float(timeline_start)), 3)
+            # Negative timeline_start is allowed for positioning trimmed videos before 00:00
+            # Round to millisecond precision
+            timeline_start = round(float(timeline_start), 3)
             video.timeline_start = timeline_start
 
         if timeline_end is not None:
@@ -353,8 +354,7 @@ async def handle_video_resize(project_name: str, data: dict) -> dict:
         # Validate and update timeline position
         if timeline_start is not None:
             timeline_start = float(timeline_start)
-            # Can't go below 0
-            timeline_start = max(0, timeline_start)
+            # Negative timeline_start is allowed for positioning trimmed videos before 00:00
             # Can't make clip shorter than minimum duration
             max_start = current_end - MIN_CLIP_DURATION
             timeline_start = min(timeline_start, max_start)

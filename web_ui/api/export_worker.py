@@ -413,16 +413,38 @@ async def run_export(
             }), flush=True)
             return True
         else:
+            # This should rarely happen now that most errors raise exceptions
             print(json.dumps({
                 "type": "error",
-                "message": "Export failed - check logs for details"
+                "message": "Export failed unexpectedly. Please ensure all video files are accessible and try again."
             }), flush=True)
             return False
 
-    except Exception as e:
+    except ValueError as e:
+        # User-facing validation errors (e.g., incompatible video orientations)
         print(json.dumps({
             "type": "error",
             "message": str(e)
+        }), flush=True)
+        logger.error(f"Export validation error: {e}")
+        return False
+
+    except Exception as e:
+        # Unexpected errors - provide helpful message
+        error_msg = str(e)
+        # Make common errors more user-friendly
+        if "codec" in error_msg.lower():
+            error_msg = f"Video codec error: {error_msg}. Try using H.264 encoded videos."
+        elif "permission" in error_msg.lower() or "access" in error_msg.lower():
+            error_msg = f"File access error: {error_msg}. Please check file permissions."
+        elif "space" in error_msg.lower() or "disk" in error_msg.lower():
+            error_msg = f"Storage error: {error_msg}. Please free up disk space."
+        elif "ffmpeg" in error_msg.lower():
+            error_msg = f"Video processing error: {error_msg}"
+
+        print(json.dumps({
+            "type": "error",
+            "message": error_msg
         }), flush=True)
         logger.error(f"Export worker error: {e}")
         return False

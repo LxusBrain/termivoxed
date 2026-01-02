@@ -19,6 +19,12 @@ import {
   User,
   UserCredential,
 } from 'firebase/auth'
+import {
+  getFirestore,
+  doc,
+  onSnapshot,
+  Unsubscribe,
+} from 'firebase/firestore'
 
 // Firebase configuration from environment variables
 // These should be set in .env.local for development
@@ -40,10 +46,12 @@ export const isFirebaseConfigured = (): boolean => {
 // Initialize Firebase only if configured and not already initialized
 let app: ReturnType<typeof initializeApp> | null = null
 let auth: ReturnType<typeof getAuth> | null = null
+let db: ReturnType<typeof getFirestore> | null = null
 
 if (isFirebaseConfigured()) {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
   auth = getAuth(app)
+  db = getFirestore(app)
 } else {
   console.warn(
     'Firebase is not configured. Please create a .env.local file in web_ui/frontend/ with:\n' +
@@ -167,5 +175,228 @@ export function getCurrentUser(): User | null {
   return auth.currentUser
 }
 
+/**
+ * Subscription data structure from Firestore
+ */
+export interface FirestoreSubscriptionData {
+  // Priority 1: lxusbrain format (users/{uid})
+  plan?: string
+  planStatus?: string
+  subscription_expires_at?: unknown  // Firestore Timestamp
+  subscriptionExpiresAt?: unknown
+  expiresAt?: unknown
+
+  // Priority 2: termivoxed format (subscriptions/{uid})
+  tier?: string
+  status?: string
+  currentPeriodEnd?: unknown
+  periodEnd?: unknown
+  trialEndsAt?: unknown
+
+  // Legacy format (users/{uid}.subscription)
+  subscription?: {
+    tier?: string
+    status?: string
+    periodEnd?: unknown
+    currentPeriodEnd?: unknown
+    expiresAt?: unknown
+  }
+}
+
+/**
+ * Normalized subscription data returned to the caller
+ */
+export interface NormalizedSubscription {
+  tier: string
+  status: string
+  expiresAt: string | null
+}
+
+/**
+ * Helper to convert Firestore timestamp to ISO string
+ */
+function timestampToISOString(value: unknown): string | null {
+  if (!value) return null
+
+  // Firestore Timestamp object
+  if (typeof value === 'object' && value !== null && 'seconds' in value) {
+    const seconds = (value as { seconds: number }).seconds
+    return new Date(seconds * 1000).toISOString()
+  }
+
+  // JavaScript Date object
+  if (value instanceof Date) {
+    return value.toISOString()
+  }
+
+  // ISO string
+  if (typeof value === 'string') {
+    return value
+  }
+
+  return null
+}
+
+/**
+ * Parse and normalize subscription data from Firestore
+ * Matches the priority order used in backend auth.py
+ */
+function normalizeSubscriptionData(data: FirestoreSubscriptionData | null): NormalizedSubscription {
+  const defaultResult: NormalizedSubscription = {
+    tier: 'free_trial',
+    status: 'trial',
+    expiresAt: null,
+  }
+
+  if (!data) return defaultResult
+
+  // Priority 1: lxusbrain format (plan, planStatus)
+  if (data.plan) {
+    let tier = data.plan.toLowerCase()
+    let status = (data.planStatus || 'active').toLowerCase()
+
+    // Normalize tier
+    if (tier === 'free' || tier === 'trial') tier = 'free_trial'
+    if (tier === 'basic') tier = 'individual'
+
+    // For active paid subscriptions, use ACTIVE status (not TRIAL)
+    if (tier !== 'free_trial' && status === 'trial') {
+      status = 'active'
+    }
+
+    // Get expiry date
+    const expiresAt = timestampToISOString(
+      data.subscription_expires_at || data.subscriptionExpiresAt || data.expiresAt
+    )
+
+    return { tier, status, expiresAt }
+  }
+
+  // Priority 2: termivoxed format (tier, status) - from subscriptions/{uid}
+  if (data.tier) {
+    let tier = data.tier.toLowerCase()
+    let status = (data.status || 'active').toLowerCase()
+
+    // Normalize tier
+    if (tier === 'free' || tier === 'trial') tier = 'free_trial'
+    if (tier === 'basic') tier = 'individual'
+
+    // For active paid subscriptions, use ACTIVE status (not TRIAL)
+    if (tier !== 'free_trial' && status === 'trial') {
+      status = 'active'
+    }
+
+    // Get expiry date - check expiresAt first (what Cloud Functions write)
+    const expiresAt = timestampToISOString(
+      data.expiresAt || data.currentPeriodEnd || data.periodEnd || data.trialEndsAt
+    )
+
+    return { tier, status, expiresAt }
+  }
+
+  // Priority 3: Legacy format (subscription nested object)
+  if (data.subscription) {
+    const sub = data.subscription
+    let tier = (sub.tier || 'free_trial').toLowerCase()
+    let status = (sub.status || 'trial').toLowerCase()
+
+    // Normalize tier
+    if (tier === 'free' || tier === 'trial') tier = 'free_trial'
+    if (tier === 'basic') tier = 'individual'
+
+    // For active paid subscriptions, use ACTIVE status (not TRIAL)
+    if (tier !== 'free_trial' && status === 'trial') {
+      status = 'active'
+    }
+
+    const expiresAt = timestampToISOString(
+      sub.periodEnd || sub.currentPeriodEnd || sub.expiresAt
+    )
+
+    return { tier, status, expiresAt }
+  }
+
+  return defaultResult
+}
+
+/**
+ * Subscribe to real-time subscription changes for a user
+ * Listens to both users/{uid} and subscriptions/{uid} documents
+ *
+ * @param uid User ID to listen for
+ * @param callback Called when subscription data changes
+ * @returns Unsubscribe function to stop listening
+ */
+export function onSubscriptionChange(
+  uid: string,
+  callback: (subscription: NormalizedSubscription) => void
+): Unsubscribe {
+  if (!db || !uid) {
+    // Return no-op if Firebase not configured
+    return () => {}
+  }
+
+  let unsubUsers: Unsubscribe | null = null
+  let unsubSubscriptions: Unsubscribe | null = null
+  let latestUserData: FirestoreSubscriptionData | null = null
+  let latestSubData: FirestoreSubscriptionData | null = null
+
+  const processUpdate = () => {
+    // Combine data with priority: users (lxusbrain) > subscriptions (termivoxed)
+    // Check users document first for "plan" field
+    if (latestUserData?.plan) {
+      callback(normalizeSubscriptionData(latestUserData))
+      return
+    }
+
+    // Fall back to subscriptions collection
+    if (latestSubData?.tier) {
+      callback(normalizeSubscriptionData(latestSubData))
+      return
+    }
+
+    // Check users document for legacy nested subscription
+    if (latestUserData?.subscription) {
+      callback(normalizeSubscriptionData(latestUserData))
+      return
+    }
+
+    // No subscription data found - return defaults
+    callback(normalizeSubscriptionData(null))
+  }
+
+  // Listen to users/{uid} document (lxusbrain format + legacy format)
+  const userDocRef = doc(db, 'users', uid)
+  unsubUsers = onSnapshot(userDocRef, (snapshot) => {
+    if (snapshot.exists()) {
+      latestUserData = snapshot.data() as FirestoreSubscriptionData
+    } else {
+      latestUserData = null
+    }
+    processUpdate()
+  }, (error) => {
+    console.error('[FIREBASE] Error listening to user document:', error)
+  })
+
+  // Listen to subscriptions/{uid} document (termivoxed Cloud Functions format)
+  const subDocRef = doc(db, 'subscriptions', uid)
+  unsubSubscriptions = onSnapshot(subDocRef, (snapshot) => {
+    if (snapshot.exists()) {
+      latestSubData = snapshot.data() as FirestoreSubscriptionData
+    } else {
+      latestSubData = null
+    }
+    processUpdate()
+  }, (error) => {
+    console.error('[FIREBASE] Error listening to subscriptions document:', error)
+  })
+
+  // Return combined unsubscribe function
+  return () => {
+    if (unsubUsers) unsubUsers()
+    if (unsubSubscriptions) unsubSubscriptions()
+  }
+}
+
 // Export types
-export type { User, UserCredential }
+export type { User, UserCredential, Unsubscribe }

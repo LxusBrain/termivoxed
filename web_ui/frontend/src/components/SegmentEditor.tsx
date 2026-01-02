@@ -1434,10 +1434,12 @@ export default function SegmentEditor({ projectName, segment, onClose }: Segment
             )}
             <button
               onClick={async () => {
-                const hasConsent = await checkTTSConsent()
-                if (hasConsent) {
-                  previewMutation.mutate()
+                // Only check TTS consent for cloud providers - local providers don't need consent
+                if (requiresConsent) {
+                  const hasConsent = await checkTTSConsent()
+                  if (!hasConsent) return
                 }
+                previewMutation.mutate()
               }}
               disabled={!voiceId || !text || previewMutation.isPending || isPreviewPlaying}
               className="btn-secondary px-3 shrink-0"
@@ -1600,8 +1602,8 @@ export default function SegmentEditor({ projectName, segment, onClose }: Segment
               </span>
             )}
             {segment.audio_path && (
-              <span className="text-[10px] text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">
-                ✓ Saved
+              <span className="text-[10px] text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                <Check className="w-3 h-3" /> Saved
               </span>
             )}
           </div>
@@ -1631,15 +1633,16 @@ export default function SegmentEditor({ projectName, segment, onClose }: Segment
           <div className="flex gap-2">
             <button
               onClick={async () => {
-                // Use voice cloning if a sample is selected
+                // Use voice cloning if a sample is selected (always local, no consent needed)
                 if (selectedVoiceSample) {
                   handleClonePreview()
                 } else {
-                  // Use regular TTS
-                  const hasConsent = await checkTTSConsent()
-                  if (hasConsent) {
-                    segmentAudioMutation.mutate()
+                  // Use regular TTS - only check consent for cloud providers
+                  if (requiresConsent) {
+                    const hasConsent = await checkTTSConsent()
+                    if (!hasConsent) return
                   }
+                  segmentAudioMutation.mutate()
                 }
               }}
               disabled={!text || (!voiceId && !selectedVoiceSample) || segmentAudioMutation.isPending || isClonePreviewLoading}

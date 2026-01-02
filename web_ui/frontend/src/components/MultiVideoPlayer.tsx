@@ -105,6 +105,15 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
   const bgmFadeIntervals = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
   const bgmPlayingRef = useRef<Set<string>>(new Set())  // Track BGM tracks with pending play operations
 
+  // Track if user has seeked to a gap/empty space on the timeline
+  // This prevents timeupdate from snapping the playhead back to the last video position
+  const isSeekingToGapRef = useRef<boolean>(false)
+  const gapSeekTimeRef = useRef<number>(0)
+
+  // Debug: Track last user-initiated seek to prevent rapid overrides
+  const lastUserSeekTimeRef = useRef<number>(0)
+  const lastUserSeekPositionRef = useRef<number>(0)
+
   const { currentTime, setCurrentTime, isPlaying, setIsPlaying, segments, selectedSegmentId } =
     useAppStore()
 
@@ -262,84 +271,66 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
     setIsPlaying(value)            // Schedule state update (async)
   }, [setIsPlaying])
 
-  // Switch video when active video changes - NO delay, switch immediately
-  useEffect(() => {
-    if (!activeVideo || !videoRef.current) return
+  // Track last video switch time to prevent rapid switching (causes 429 errors)
+  const lastVideoSwitchTimeRef = useRef<number>(0)
+  const pendingVideoSwitchRef = useRef<string | null>(null)
+  const videoSwitchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-    const video = videoRef.current
-
-    // Check if we actually need to switch - compare video IDs
-    if (activeVideo.id === lastVideoIdRef.current) {
-      // Same video - check if it was preloaded and is now ready
-      // This handles the case where we preloaded from a gap and now activeVideo is defined
-      if (video.readyState >= 2 && isVideoLoading) {
-        console.log('[MultiVideoPlayer] Video was preloaded and is ready:', activeVideo.name)
-        setIsVideoLoading(false)
-        setCanPlay(true)
-      }
-      return // Same video, no switch needed
-    }
-
-    console.log('[MultiVideoPlayer] Switching to video:', activeVideo.name, '(order:', videos.find(v => v.id === activeVideo.id)?.order, ')')
+  // Function to perform the actual video switch - extracted so it can be called from timeout
+  const performVideoSwitch = useCallback((targetVideo: VideoPosition, videoElement: HTMLVideoElement) => {
+    console.log('[MultiVideoPlayer] Switching to video:', targetVideo.name, '(order:', videos.find(v => v.id === targetVideo.id)?.order, ')')
     isSwitchingRef.current = true
-    lastVideoIdRef.current = activeVideo.id
-    setCurrentVideoId(activeVideo.id)
-    setVideoLoadError(null)  // Clear any previous errors
-    setIsVideoLoading(true)  // Start loading state
+    lastVideoIdRef.current = targetVideo.id
+    pendingVideoSwitchRef.current = null
+    setCurrentVideoId(targetVideo.id)
+    setVideoLoadError(null)
+    setIsVideoLoading(true)
     setCanPlay(false)
     setLoadingProgress(0)
 
     const capturedCurrentTime = currentTimeRef.current
-    const capturedActiveVideo = activeVideo
+    const capturedActiveVideo = targetVideo
     let handlerFired = false
 
-    // Define the loadeddata handler
     const handleLoadedData = () => {
       if (handlerFired) return
       handlerFired = true
-      setVideoLoadError(null)  // Success - clear any error
-      setIsVideoLoading(false)  // Loading complete
+      setVideoLoadError(null)
+      setIsVideoLoading(false)
       setCanPlay(true)
 
       const timeIntoClip = capturedCurrentTime - capturedActiveVideo.timelineStart
-      // Add sourceStart offset to get actual position in source file
       const targetTime = capturedActiveVideo.sourceStart + timeIntoClip
       const maxTime = capturedActiveVideo.sourceEnd ?? capturedActiveVideo.duration
-      video.currentTime = Math.max(capturedActiveVideo.sourceStart, Math.min(targetTime, maxTime))
+      videoElement.currentTime = Math.max(capturedActiveVideo.sourceStart, Math.min(targetTime, maxTime))
 
-      // Check CURRENT playing state, not captured wasPlaying
-      // User might have paused during the switch
       if (isPlayingRef.current) {
-        video.play().catch(e => console.warn('Failed to resume playback:', e))
+        videoElement.play().catch(e => console.warn('Failed to resume playback:', e))
       }
 
-      // Allow time updates after a small delay
       setTimeout(() => {
         isSwitchingRef.current = false
       }, 100)
 
-      video.removeEventListener('loadeddata', handleLoadedData)
-      video.removeEventListener('error', handleError)
-      video.removeEventListener('canplay', handleCanPlay)
-      video.removeEventListener('progress', handleProgress)
+      videoElement.removeEventListener('loadeddata', handleLoadedData)
+      videoElement.removeEventListener('error', handleError)
+      videoElement.removeEventListener('canplay', handleCanPlay)
+      videoElement.removeEventListener('progress', handleProgress)
     }
 
-    // Define the canplay handler (video is ready to start playing)
     const handleCanPlay = () => {
       setCanPlay(true)
       setIsVideoLoading(false)
     }
 
-    // Define the progress handler (track buffering progress)
     const handleProgress = () => {
-      if (video.buffered.length > 0 && video.duration) {
-        const bufferedEnd = video.buffered.end(video.buffered.length - 1)
-        const progress = Math.min(100, (bufferedEnd / video.duration) * 100)
+      if (videoElement.buffered.length > 0 && videoElement.duration) {
+        const bufferedEnd = videoElement.buffered.end(videoElement.buffered.length - 1)
+        const progress = Math.min(100, (bufferedEnd / videoElement.duration) * 100)
         setLoadingProgress(progress)
       }
     }
 
-    // Define the error handler
     const handleError = () => {
       if (handlerFired) return
       handlerFired = true
@@ -347,10 +338,9 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
       setIsVideoLoading(false)
       setCanPlay(false)
 
-      const errorMsg = video.error?.message || 'Video failed to load'
+      const errorMsg = videoElement.error?.message || 'Video failed to load'
       console.error('[MultiVideoPlayer] Video load error:', errorMsg, 'for video:', capturedActiveVideo.name)
 
-      // Check if this is a codec compatibility issue
       const codecCheck = isCodecBrowserCompatible(capturedActiveVideo.codec)
       let displayError: string
 
@@ -365,26 +355,22 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
 
       setVideoLoadError(displayError)
 
-      video.removeEventListener('loadeddata', handleLoadedData)
-      video.removeEventListener('error', handleError)
-      video.removeEventListener('canplay', handleCanPlay)
-      video.removeEventListener('progress', handleProgress)
+      videoElement.removeEventListener('loadeddata', handleLoadedData)
+      videoElement.removeEventListener('error', handleError)
+      videoElement.removeEventListener('canplay', handleCanPlay)
+      videoElement.removeEventListener('progress', handleProgress)
     }
 
-    // Add listeners and load video
-    video.addEventListener('loadeddata', handleLoadedData)
-    video.addEventListener('error', handleError)
-    video.addEventListener('canplay', handleCanPlay)
-    video.addEventListener('progress', handleProgress)
-    video.src = activeVideo.url
-    video.load()
+    videoElement.addEventListener('loadeddata', handleLoadedData)
+    videoElement.addEventListener('error', handleError)
+    videoElement.addEventListener('canplay', handleCanPlay)
+    videoElement.addEventListener('progress', handleProgress)
+    videoElement.src = targetVideo.url
+    videoElement.load()
 
-    // Fallback: ensure isSwitchingRef is reset even if loadeddata doesn't fire
-    // This can happen if the video is already cached
-    // Use a short timeout (200ms) just to reset the switching flag for cached videos
+    // Quick fallback for cached videos
     const quickFallbackTimeout = setTimeout(() => {
-      if (!handlerFired && video.readyState >= 2) {
-        // Video loaded from cache - handlers might not have fired
+      if (!handlerFired && videoElement.readyState >= 2) {
         console.log('[MultiVideoPlayer] Quick fallback: Video ready from cache')
         handlerFired = true
         isSwitchingRef.current = false
@@ -393,48 +379,42 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
         const timeIntoClip = currentTimeRef.current - capturedActiveVideo.timelineStart
         const targetTime = capturedActiveVideo.sourceStart + timeIntoClip
         const maxTime = capturedActiveVideo.sourceEnd ?? capturedActiveVideo.duration
-        video.currentTime = Math.max(capturedActiveVideo.sourceStart, Math.min(targetTime, maxTime))
-        // Check CURRENT playing state, not captured wasPlaying
+        videoElement.currentTime = Math.max(capturedActiveVideo.sourceStart, Math.min(targetTime, maxTime))
         if (isPlayingRef.current) {
-          video.play().catch(e => console.warn('Failed to resume playback:', e))
+          videoElement.play().catch(e => console.warn('Failed to resume playback:', e))
         }
-        video.removeEventListener('loadeddata', handleLoadedData)
-        video.removeEventListener('error', handleError)
-        video.removeEventListener('canplay', handleCanPlay)
-        video.removeEventListener('progress', handleProgress)
+        videoElement.removeEventListener('loadeddata', handleLoadedData)
+        videoElement.removeEventListener('error', handleError)
+        videoElement.removeEventListener('canplay', handleCanPlay)
+        videoElement.removeEventListener('progress', handleProgress)
       }
     }, 200)
 
-    // Longer fallback: if video still hasn't loaded after 5 seconds, show error
-    // This gives network requests enough time to complete
+    // Long fallback for slow loads
     const longFallbackTimeout = setTimeout(() => {
       if (!handlerFired) {
-        console.log('[MultiVideoPlayer] Long fallback: Video still not ready after 5s, readyState:', video.readyState)
+        console.log('[MultiVideoPlayer] Long fallback: Video still not ready after 5s, readyState:', videoElement.readyState)
         isSwitchingRef.current = false
 
-        if (video.readyState >= 2) {
-          // Video eventually loaded
+        if (videoElement.readyState >= 2) {
           setIsVideoLoading(false)
           setCanPlay(true)
           const timeIntoClip = currentTimeRef.current - capturedActiveVideo.timelineStart
           const targetTime = capturedActiveVideo.sourceStart + timeIntoClip
           const maxTime = capturedActiveVideo.sourceEnd ?? capturedActiveVideo.duration
-          video.currentTime = Math.max(capturedActiveVideo.sourceStart, Math.min(targetTime, maxTime))
-          // Check CURRENT playing state, not captured wasPlaying
+          videoElement.currentTime = Math.max(capturedActiveVideo.sourceStart, Math.min(targetTime, maxTime))
           if (isPlayingRef.current) {
-            video.play().catch(e => {
+            videoElement.play().catch(e => {
               console.warn('Failed to resume playback:', e)
               setIsPlayingWithRef(false)
             })
           }
-        } else if (video.readyState === 0) {
-          // Video never started loading - likely a network or file issue
+        } else if (videoElement.readyState === 0) {
           console.warn('[MultiVideoPlayer] Video failed to load. readyState: 0')
           setIsPlayingWithRef(false)
           setIsVideoLoading(false)
           setCanPlay(false)
 
-          // Check codec compatibility for better error message
           const codecCheck = isCodecBrowserCompatible(capturedActiveVideo.codec)
           if (!codecCheck.compatible && codecCheck.warning) {
             setVideoLoadError(`Video "${capturedActiveVideo.name}" cannot play in browser.\n${codecCheck.warning}`)
@@ -443,29 +423,85 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
             setVideoLoadError(`Video "${capturedActiveVideo.name}"${codecInfo} failed to load. Check if the file exists and is accessible.`)
           }
         } else {
-          // Video is loading (readyState 1) - keep waiting, don't stop
-          console.log('[MultiVideoPlayer] Video still loading (readyState:', video.readyState, '), continuing to wait...')
-          // Keep the loading state, don't clear handlers - let it continue loading
+          console.log('[MultiVideoPlayer] Video still loading (readyState:', videoElement.readyState, '), continuing to wait...')
           return
         }
 
-        video.removeEventListener('loadeddata', handleLoadedData)
-        video.removeEventListener('error', handleError)
-        video.removeEventListener('canplay', handleCanPlay)
-        video.removeEventListener('progress', handleProgress)
+        videoElement.removeEventListener('loadeddata', handleLoadedData)
+        videoElement.removeEventListener('error', handleError)
+        videoElement.removeEventListener('canplay', handleCanPlay)
+        videoElement.removeEventListener('progress', handleProgress)
       }
     }, 5000)
 
-    // Cleanup function
+    // Return cleanup function
     return () => {
-      video.removeEventListener('loadeddata', handleLoadedData)
-      video.removeEventListener('error', handleError)
-      video.removeEventListener('canplay', handleCanPlay)
-      video.removeEventListener('progress', handleProgress)
+      videoElement.removeEventListener('loadeddata', handleLoadedData)
+      videoElement.removeEventListener('error', handleError)
+      videoElement.removeEventListener('canplay', handleCanPlay)
+      videoElement.removeEventListener('progress', handleProgress)
       clearTimeout(quickFallbackTimeout)
       clearTimeout(longFallbackTimeout)
     }
-  }, [activeVideo, videos, setIsPlayingWithRef])
+  }, [videos, setIsPlayingWithRef])
+
+  // Switch video when active video changes
+  useEffect(() => {
+    if (!activeVideo || !videoRef.current) return
+
+    const video = videoRef.current
+
+    // Check if we actually need to switch - compare video IDs
+    if (activeVideo.id === lastVideoIdRef.current) {
+      // Same video - reset the switching flag
+      isSwitchingRef.current = false
+
+      // Check if video was preloaded and is now ready
+      if (video.readyState >= 2 && isVideoLoading) {
+        console.log('[MultiVideoPlayer] Video was preloaded and is ready:', activeVideo.name)
+        setIsVideoLoading(false)
+        setCanPlay(true)
+      }
+      return
+    }
+
+    // Throttle video switches to prevent 429 errors from rapid switching
+    const now = Date.now()
+    const timeSinceLastSwitch = now - lastVideoSwitchTimeRef.current
+    if (timeSinceLastSwitch < 300 && lastVideoSwitchTimeRef.current > 0) {
+      // Clear any existing debounce timeout
+      if (videoSwitchDebounceRef.current) {
+        clearTimeout(videoSwitchDebounceRef.current)
+      }
+
+      // Store the pending video switch
+      pendingVideoSwitchRef.current = activeVideo.id
+      const pendingVideo = activeVideo
+      const videoElement = video
+
+      // Schedule the switch after the throttle period
+      videoSwitchDebounceRef.current = setTimeout(() => {
+        videoSwitchDebounceRef.current = null
+        // Only perform switch if this video is still pending (user might have switched again)
+        if (pendingVideoSwitchRef.current === pendingVideo.id) {
+          lastVideoSwitchTimeRef.current = Date.now()
+          performVideoSwitch(pendingVideo, videoElement)
+        }
+      }, 300 - timeSinceLastSwitch)
+
+      // Return cleanup for throttled case
+      return () => {
+        if (videoSwitchDebounceRef.current) {
+          clearTimeout(videoSwitchDebounceRef.current)
+          videoSwitchDebounceRef.current = null
+        }
+      }
+    }
+
+    lastVideoSwitchTimeRef.current = now
+    const cleanup = performVideoSwitch(activeVideo, video)
+    return cleanup
+  }, [activeVideo, videos, setIsPlayingWithRef, performVideoSwitch])
 
   // Handle gap playback - advance time during gaps until we reach the next video
   const gapIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -480,6 +516,9 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
 
     // Only run gap playback if we're truly in a gap (no active video) and playing
     if (isInGap && isPlaying && !activeVideo) {
+      // Clear the gap seek flag - we're now actively playing through the gap
+      isSeekingToGapRef.current = false
+
       if (nextVideo) {
         console.log('[MultiVideoPlayer] In gap, advancing to next video at', nextVideo.timelineStart)
 
@@ -494,6 +533,22 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
 
         gapIntervalRef.current = setInterval(() => {
           if (!gapStartTimeRef.current) return
+
+          // Check if the store's current time differs significantly from expected
+          // This happens when user seeks to a new position while in gap playback
+          const actualStoreTime = useAppStore.getState().currentTime
+          const expectedTime = gapStartTimeRef.current.position +
+            (Date.now() - gapStartTimeRef.current.wallTime) / 1000
+          const drift = Math.abs(actualStoreTime - expectedTime)
+
+          // If store time differs by more than 0.5s, user seeked - re-sync to their position
+          if (drift > 0.5) {
+            gapStartTimeRef.current = {
+              wallTime: Date.now(),
+              position: actualStoreTime
+            }
+            return // Skip this tick, will resume from new position next tick
+          }
 
           const elapsed = (Date.now() - gapStartTimeRef.current.wallTime) / 1000
           const newTime = gapStartTimeRef.current.position + elapsed
@@ -598,15 +653,30 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
     const handleTimeUpdate = () => {
       if (isSwitchingRef.current) return
 
+      // CRITICAL: Don't overwrite currentTime if user has seeked to a gap/empty space
+      if (isSeekingToGapRef.current) return
+
+      // Calculate absolute timeline time accounting for source trimming
+      const timeIntoClip = video.currentTime - activeVideo.sourceStart
+      const absoluteTime = timeIntoClip + activeVideo.timelineStart
+
+      // Protect recent user seeks from being overwritten by stale timeupdate events
+      // Only block if: (1) user seeked recently AND (2) video is at a different position
+      // After the protection window (500ms), let video updates through to keep playhead moving
+      const timeSinceUserSeek = Date.now() - lastUserSeekTimeRef.current
+      if (timeSinceUserSeek < 500) {
+        const actualStoreTime = useAppStore.getState().currentTime
+        const storeDiff = Math.abs(actualStoreTime - absoluteTime)
+        if (storeDiff > 1.0) return
+      }
+
       // Calculate effective timeline end accounting for trimming
       const sourceEnd = activeVideo.sourceEnd ?? activeVideo.duration
       const playableDuration = sourceEnd - activeVideo.sourceStart
       const effectiveTimelineEnd = Math.min(activeVideo.timelineEnd, activeVideo.timelineStart + playableDuration)
 
-      // Report absolute timeline time accounting for source trimming
-      // video.currentTime is position in source file, subtract sourceStart to get time into clip
-      const timeIntoClip = video.currentTime - activeVideo.sourceStart
-      const absoluteTime = timeIntoClip + activeVideo.timelineStart
+      // DEBUG: Log timeupdate calls
+      // console.log(`[MultiVideoPlayer] timeupdate: video.currentTime=${video.currentTime.toFixed(2)}, absoluteTime=${absoluteTime.toFixed(2)}, activeVideo=${activeVideo.name}`)
 
       // Always update time - the activeVideo useMemo already handles determining
       // which video should be active at the current time
@@ -733,7 +803,29 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
   // Uses debouncing to prevent lag when rapidly moving the playhead
   useEffect(() => {
     const video = videoRef.current
-    if (!video || !activeVideo || isSwitchingRef.current) return
+    if (!video || isSwitchingRef.current) return
+
+    // Track this as a user-initiated seek (for timeupdate protection)
+    const isSignificantChange = Math.abs(currentTime - lastCurrentTimeRef.current) > 0.5
+    if (isSignificantChange) {
+      lastUserSeekTimeRef.current = Date.now()
+      lastUserSeekPositionRef.current = currentTime
+    }
+
+    // Check if we're seeking to a gap (no active video at current time)
+    if (!activeVideo || isInGap) {
+      // User seeked to a gap - set the flag to prevent timeupdate from snapping back
+      isSeekingToGapRef.current = true
+      gapSeekTimeRef.current = currentTime
+
+      // Pause the video element since there's nothing to show
+      if (video && !video.paused) {
+        video.pause()
+      }
+
+      lastCurrentTimeRef.current = currentTime
+      return
+    }
 
     // Calculate target position in source file accounting for source trimming
     const timeIntoClip = currentTime - activeVideo.timelineStart
@@ -743,12 +835,20 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
     const effectiveEnd = activeVideo.sourceEnd ?? activeVideo.duration
     const clipDuration = effectiveEnd - activeVideo.sourceStart
 
-    // Only seek if within this video's trimmed range and significantly different
+    // Check if time is within this video's trimmed range
     if (timeIntoClip >= 0 && timeIntoClip <= clipDuration) {
+      // User seeked INSIDE video bounds - clear the gap seek flag
+      if (isSeekingToGapRef.current) {
+        isSeekingToGapRef.current = false
+      }
+
       const timeDiff = Math.abs(video.currentTime - targetSourceTime)
 
       // For small differences during normal playback, don't seek (video handles this)
-      if (timeDiff < 0.2) return
+      if (timeDiff < 0.2) {
+        lastCurrentTimeRef.current = currentTime
+        return
+      }
 
       // For larger differences (user seeking), debounce to prevent lag
       const now = Date.now()
@@ -772,11 +872,15 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
         video.currentTime = targetSourceTime
         lastSeekTimeRef.current = now
       }
+    } else {
+      // User seeked OUTSIDE this video's bounds - set the gap flag
+      isSeekingToGapRef.current = true
+      gapSeekTimeRef.current = currentTime
     }
 
     // Track last currentTime for change detection
     lastCurrentTimeRef.current = currentTime
-  }, [currentTime, activeVideo, isPlaying])
+  }, [currentTime, activeVideo, isPlaying, isInGap])
 
   // Handle external play/pause changes (e.g., clicking segment play button)
   useEffect(() => {
@@ -817,19 +921,29 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
   }, [canPlay, isPlaying, activeVideo, isInGap])
 
   // Safeguard: Monitor video readyState and correct stale loading state
-  // This handles cases where loading state gets stuck due to missed events
+  // This handles cases where loading state gets stuck due to missed events.
+  //
+  // RACE CONDITION EXPLANATION:
+  // The Video Switch Effect attaches handlers (loadeddata, error, etc.) when switching videos.
+  // However, parent re-renders can cause the effect to cleanup and re-run even for the same video
+  // (because dependencies like `activeVideo` object reference or `videos` array reference changed).
+  // When the effect re-runs for the same video ID, it takes an early return path and doesn't
+  // re-attach handlers. This leaves us with no handlers when the browser fires loadeddata/error.
+  //
+  // This Safeguard effect provides backup handlers that persist across those re-renders,
+  // ensuring video loading state is always properly updated.
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
 
-    // If video is ready but loading state is stuck, fix it
+    // If video is ready but loading state is stuck, fix it immediately
     if (isVideoLoading && video.readyState >= 3 && video.src && !isSwitchingRef.current) {
       console.log('[MultiVideoPlayer] Safeguard: Video is ready but isVideoLoading was stuck, fixing...')
       setIsVideoLoading(false)
       setCanPlay(true)
     }
 
-    // Also listen for loadeddata events that might have been missed
+    // Listen for loadeddata events that might have been missed by Video Switch Effect
     const handleLoadedData = () => {
       if (isVideoLoading && !isSwitchingRef.current) {
         console.log('[MultiVideoPlayer] Safeguard: loadeddata event caught')
@@ -838,8 +952,36 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
       }
     }
 
+    // Listen for canplay events as an additional signal
+    const handleCanPlay = () => {
+      if (isVideoLoading && !isSwitchingRef.current) {
+        console.log('[MultiVideoPlayer] Safeguard: canplay event caught')
+        setIsVideoLoading(false)
+        setCanPlay(true)
+      }
+    }
+
+    // Listen for error events to ensure errors are caught even if main handler was removed
+    const handleError = () => {
+      if (isVideoLoading && !isSwitchingRef.current) {
+        const errorMsg = video.error?.message || 'Video failed to load'
+        console.error('[MultiVideoPlayer] Safeguard: error event caught:', errorMsg)
+        setIsVideoLoading(false)
+        setCanPlay(false)
+        // Only set error if not already set (main handler might have caught it first)
+        setVideoLoadError(prev => prev || `Video failed to load: ${errorMsg}`)
+      }
+    }
+
     video.addEventListener('loadeddata', handleLoadedData)
-    return () => video.removeEventListener('loadeddata', handleLoadedData)
+    video.addEventListener('canplay', handleCanPlay)
+    video.addEventListener('error', handleError)
+
+    return () => {
+      video.removeEventListener('loadeddata', handleLoadedData)
+      video.removeEventListener('canplay', handleCanPlay)
+      video.removeEventListener('error', handleError)
+    }
   }, [isVideoLoading])
 
   // Stop segment audio when video stops
@@ -1327,11 +1469,18 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
     const rect = progress.getBoundingClientRect()
     const pos = (e.clientX - rect.left) / rect.width
     const newTime = pos * totalDuration
+
+    // Mark this as a user-initiated seek to protect from timeupdate snap-back
+    lastUserSeekTimeRef.current = Date.now()
+    lastUserSeekPositionRef.current = newTime
     setCurrentTime(newTime)
   }
 
   const skip = (seconds: number) => {
     const newTime = Math.max(0, Math.min(totalDuration, currentTime + seconds))
+    // Mark this as a user-initiated seek
+    lastUserSeekTimeRef.current = Date.now()
+    lastUserSeekPositionRef.current = newTime
     setCurrentTime(newTime)
   }
 
@@ -1367,7 +1516,9 @@ export default function MultiVideoPlayer({ projectName, videos, totalDuration, b
       video.src = activeVideo.url
       setIsVideoLoading(true)
       setCanPlay(false)
-      // Note: Event handlers are attached by the video switch effect
+      // Note: Event handlers are attached by the Video Switch Effect.
+      // The Safeguard effect provides backup handlers to catch loadeddata/error events
+      // in case the Video Switch Effect's handlers are removed due to cleanup race conditions.
     }
     // If we're in a gap but have a next video, preload it
     else if (isInGap && nextVideo && !currentVideoId) {

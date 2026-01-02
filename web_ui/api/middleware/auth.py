@@ -16,7 +16,7 @@ import os
 from typing import Optional, Callable, List
 from functools import wraps
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import Request, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -128,7 +128,14 @@ class AuthenticatedUser:
         """Check if subscription is currently active"""
         if self.subscription_status in (SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIAL):
             if self.subscription_expires_at:
-                return datetime.now() < self.subscription_expires_at
+                # Use timezone-aware datetime for comparison
+                # Normalize both to UTC to avoid comparison errors
+                now = datetime.now(timezone.utc)
+                expires_at = self.subscription_expires_at
+                # If expires_at is naive, assume it's UTC
+                if expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+                return now < expires_at
             return True
         return False
 
@@ -275,12 +282,14 @@ def _parse_expiry_date(data: dict, field_names: list) -> Optional[datetime]:
     """
     Parse expiry date from various field names and formats.
 
+    Always returns timezone-aware datetime in UTC to prevent comparison errors.
+
     Args:
         data: Dictionary containing the date field
         field_names: List of possible field names to check
 
     Returns:
-        Parsed datetime or None
+        Parsed datetime (always timezone-aware UTC) or None
     """
     for field_name in field_names:
         value = data.get(field_name)
@@ -288,17 +297,26 @@ def _parse_expiry_date(data: dict, field_names: list) -> Optional[datetime]:
             continue
 
         try:
+            result = None
+
             # Handle Firestore Timestamp objects
             if hasattr(value, 'seconds'):
-                return datetime.fromtimestamp(value.seconds)
+                # Firestore timestamps are UTC, use utcfromtimestamp and add tzinfo
+                result = datetime.fromtimestamp(value.seconds, tz=timezone.utc)
 
             # Handle Python datetime
-            if isinstance(value, datetime):
-                return value
+            elif isinstance(value, datetime):
+                result = value
 
             # Handle ISO string
-            if isinstance(value, str):
-                return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            elif isinstance(value, str):
+                result = datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+            # Ensure result is timezone-aware (assume UTC if naive)
+            if result is not None:
+                if result.tzinfo is None:
+                    result = result.replace(tzinfo=timezone.utc)
+                return result
 
         except (ValueError, AttributeError, TypeError):
             continue
@@ -391,7 +409,13 @@ async def _load_user_subscription(uid: str) -> dict:
             tier = _normalize_tier(sub_data.get("tier", "free_trial"))
             status = _normalize_status(sub_data.get("status", "active"))
 
+            # For active paid subscriptions, use ACTIVE status (not TRIAL)
+            # This ensures paid users don't show "Trial active" in the UI
+            if tier != SubscriptionTier.FREE_TRIAL and status == SubscriptionStatus.TRIAL:
+                status = SubscriptionStatus.ACTIVE
+
             expires_at = _parse_expiry_date(sub_data, [
+                "expiresAt",  # Cloud Functions format (lxusbrain-website)
                 "currentPeriodEnd",
                 "current_period_end",
                 "periodEnd",
@@ -417,6 +441,11 @@ async def _load_user_subscription(uid: str) -> dict:
         if subscription:
             tier = _normalize_tier(subscription.get("tier", "free_trial"))
             status = _normalize_status(subscription.get("status", "trial"))
+
+            # For active paid subscriptions, use ACTIVE status (not TRIAL)
+            # This ensures paid users don't show "Trial active" in the UI
+            if tier != SubscriptionTier.FREE_TRIAL and status == SubscriptionStatus.TRIAL:
+                status = SubscriptionStatus.ACTIVE
 
             expires_at = _parse_expiry_date(subscription, [
                 "periodEnd",

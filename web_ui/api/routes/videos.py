@@ -442,13 +442,27 @@ async def upload_video(
         duration = FFmpegUtils.get_media_duration(str(file_path))
         video_info = FFmpegUtils.get_video_info(str(file_path))
 
+        # Calculate orientation from dimensions
+        width = video_info.get("width") if video_info else None
+        height = video_info.get("height") if video_info else None
+        orientation = None
+        if width and height:
+            aspect_ratio = width / height
+            if aspect_ratio > 1.1:
+                orientation = "horizontal"
+            elif aspect_ratio < 0.9:
+                orientation = "vertical"
+            else:
+                orientation = "square"
+
         return {
             "path": str(file_path),
             "filename": file_path.name,
             "duration": duration,
-            "width": video_info.get("width") if video_info else None,
-            "height": video_info.get("height") if video_info else None,
-            "fps": video_info.get("fps") if video_info else None
+            "width": width,
+            "height": height,
+            "fps": video_info.get("fps") if video_info else None,
+            "orientation": orientation
         }
 
     except Exception as e:

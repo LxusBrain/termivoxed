@@ -22,6 +22,7 @@ import {
   RefreshCw,
   Folder,
   ChevronUp,
+  Circle,
 } from 'lucide-react'
 import { settingsApi, llmApi, ttsApi, exportApi, modelsApi, type TTSProviderInfo, type VoiceCloningModel, type ModelDownloadProgress, type AppConfigUpdate } from '../api/client'
 import { useConsentStore } from '../stores/consentStore'
@@ -844,29 +845,29 @@ export default function SettingsPage() {
         <div className="space-y-4">
           {/* Provider Status Overview */}
           <div className="grid grid-cols-4 gap-2 mb-4">
-            <div className={clsx('p-2 rounded text-center text-xs', health?.ollama_available ? 'bg-green-500/20 text-green-500' : 'bg-terminal-bg text-text-muted')}>
-              Ollama {health?.ollama_available ? '✓' : '○'}
+            <div className={clsx('p-2 rounded text-center text-xs flex items-center justify-center gap-1', health?.ollama_available ? 'bg-green-500/20 text-green-500' : 'bg-terminal-bg text-text-muted')}>
+              Ollama {health?.ollama_available ? <Check className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
             </div>
-            <div className={clsx('p-2 rounded text-center text-xs', health?.openai_configured ? 'bg-green-500/20 text-green-500' : 'bg-terminal-bg text-text-muted')}>
-              OpenAI {health?.openai_configured ? '✓' : '○'}
+            <div className={clsx('p-2 rounded text-center text-xs flex items-center justify-center gap-1', health?.openai_configured ? 'bg-green-500/20 text-green-500' : 'bg-terminal-bg text-text-muted')}>
+              OpenAI {health?.openai_configured ? <Check className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
             </div>
-            <div className={clsx('p-2 rounded text-center text-xs', health?.anthropic_configured ? 'bg-green-500/20 text-green-500' : 'bg-terminal-bg text-text-muted')}>
-              Anthropic {health?.anthropic_configured ? '✓' : '○'}
+            <div className={clsx('p-2 rounded text-center text-xs flex items-center justify-center gap-1', health?.anthropic_configured ? 'bg-green-500/20 text-green-500' : 'bg-terminal-bg text-text-muted')}>
+              Anthropic {health?.anthropic_configured ? <Check className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
             </div>
-            <div className={clsx('p-2 rounded text-center text-xs', health?.azure_openai_configured ? 'bg-green-500/20 text-green-500' : 'bg-terminal-bg text-text-muted')}>
-              Azure {health?.azure_openai_configured ? '✓' : '○'}
+            <div className={clsx('p-2 rounded text-center text-xs flex items-center justify-center gap-1', health?.azure_openai_configured ? 'bg-green-500/20 text-green-500' : 'bg-terminal-bg text-text-muted')}>
+              Azure {health?.azure_openai_configured ? <Check className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
             </div>
-            <div className={clsx('p-2 rounded text-center text-xs', health?.google_configured ? 'bg-green-500/20 text-green-500' : 'bg-terminal-bg text-text-muted')}>
-              Google {health?.google_configured ? '✓' : '○'}
+            <div className={clsx('p-2 rounded text-center text-xs flex items-center justify-center gap-1', health?.google_configured ? 'bg-green-500/20 text-green-500' : 'bg-terminal-bg text-text-muted')}>
+              Google {health?.google_configured ? <Check className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
             </div>
-            <div className={clsx('p-2 rounded text-center text-xs', health?.aws_bedrock_configured ? 'bg-green-500/20 text-green-500' : 'bg-terminal-bg text-text-muted')}>
-              AWS {health?.aws_bedrock_configured ? '✓' : '○'}
+            <div className={clsx('p-2 rounded text-center text-xs flex items-center justify-center gap-1', health?.aws_bedrock_configured ? 'bg-green-500/20 text-green-500' : 'bg-terminal-bg text-text-muted')}>
+              AWS {health?.aws_bedrock_configured ? <Check className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
             </div>
-            <div className={clsx('p-2 rounded text-center text-xs', health?.huggingface_configured ? 'bg-green-500/20 text-green-500' : 'bg-terminal-bg text-text-muted')}>
-              HuggingFace {health?.huggingface_configured ? '✓' : '○'}
+            <div className={clsx('p-2 rounded text-center text-xs flex items-center justify-center gap-1', health?.huggingface_configured ? 'bg-green-500/20 text-green-500' : 'bg-terminal-bg text-text-muted')}>
+              HuggingFace {health?.huggingface_configured ? <Check className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
             </div>
-            <div className={clsx('p-2 rounded text-center text-xs', health?.langchain_available ? 'bg-blue-500/20 text-blue-500' : 'bg-terminal-bg text-text-muted')}>
-              LangChain {health?.langchain_available ? '✓' : '○'}
+            <div className={clsx('p-2 rounded text-center text-xs flex items-center justify-center gap-1', health?.langchain_available ? 'bg-blue-500/20 text-blue-500' : 'bg-terminal-bg text-text-muted')}>
+              LangChain {health?.langchain_available ? <Check className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
             </div>
           </div>
 

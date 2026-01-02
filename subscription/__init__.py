@@ -24,7 +24,7 @@ from subscription.models import (
     FeatureAccess
 )
 from subscription.license_manager import LicenseManager
-from subscription.feature_gate import FeatureGate, feature_required
+from subscription.feature_gate import FeatureGate, feature_required, can_export_resolution
 from subscription.usage_tracker import (
     UsageTracker,
     UsageType,
@@ -58,6 +58,7 @@ __all__ = [
     'LicenseManager',
     'FeatureGate',
     'feature_required',
+    'can_export_resolution',
     # Usage tracking
     'UsageTracker',
     'UsageType',

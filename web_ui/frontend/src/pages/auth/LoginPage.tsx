@@ -18,6 +18,7 @@ import {
 } from '../../lib/firebase'
 import { getPersistedDeviceFingerprint } from '../../lib/deviceFingerprint'
 import { TermiVoxedLogo } from '../../components/logos'
+import { getHumanReadableError } from '../../utils/errorMessages'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -65,23 +66,7 @@ export function LoginPage() {
       }
     } catch (err: unknown) {
       console.error('Login error:', err)
-      if (err instanceof Error) {
-        if (err.message.includes('user-not-found')) {
-          setError('No account found with this email address.')
-        } else if (err.message.includes('wrong-password')) {
-          setError('Incorrect password. Please try again.')
-        } else if (err.message.includes('invalid-email')) {
-          setError('Please enter a valid email address.')
-        } else if (err.message.includes('too-many-requests')) {
-          setError('Too many failed attempts. Please try again later.')
-        } else if (err.message.includes('user-disabled')) {
-          setError('This account has been disabled. Contact support.')
-        } else {
-          setError(err.message)
-        }
-      } else {
-        setError('Login failed. Please try again.')
-      }
+      setError(getHumanReadableError(err))
     } finally {
       setLocalLoading(false)
     }
@@ -109,17 +94,7 @@ export function LoginPage() {
       }
     } catch (err: unknown) {
       console.error('Google login error:', err)
-      if (err instanceof Error) {
-        if (err.message.includes('popup-closed-by-user')) {
-          setError('Login cancelled. Please try again.')
-        } else if (err.message.includes('popup-blocked')) {
-          setError('Popup blocked. Please allow popups for this site.')
-        } else {
-          setError(err.message)
-        }
-      } else {
-        setError('Google login failed. Please try again.')
-      }
+      setError(getHumanReadableError(err))
     } finally {
       setLocalLoading(false)
     }
@@ -147,17 +122,7 @@ export function LoginPage() {
       }
     } catch (err: unknown) {
       console.error('Microsoft login error:', err)
-      if (err instanceof Error) {
-        if (err.message.includes('popup-closed-by-user')) {
-          setError('Login cancelled. Please try again.')
-        } else if (err.message.includes('account-exists-with-different-credential')) {
-          setError('An account already exists with this email using a different sign-in method.')
-        } else {
-          setError(err.message)
-        }
-      } else {
-        setError('Microsoft login failed. Please try again.')
-      }
+      setError(getHumanReadableError(err))
     } finally {
       setLocalLoading(false)
     }

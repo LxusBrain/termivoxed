@@ -1250,11 +1250,15 @@ async def list_invoices(user: AuthenticatedUser = Depends(get_current_user)):
 
         for doc in docs:
             data = doc.to_dict()
+            # Handle different field names from Cloud Functions vs backend webhooks
+            # Cloud Functions write: amountRupees, amountPaise
+            # Backend webhooks write: amount
+            amount = data.get("amountRupees") or data.get("amount") or 0
             invoices.append({
                 "id": doc.id,
-                "amount": data.get("amount"),
-                "currency": data.get("currency"),
-                "status": data.get("status"),
+                "amount": amount,
+                "currency": data.get("currency") or "INR",
+                "status": data.get("status") or "paid",
                 "invoiceNumber": data.get("invoiceNumber"),
                 "createdAt": data.get("createdAt"),
                 "downloadUrl": data.get("invoiceUrl"),

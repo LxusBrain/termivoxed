@@ -151,16 +151,7 @@ async def start_export(
             detail=f"Export limit reached. You've used {usage_info['current']} of {usage_info['limit']} exports this month. Upgrade your plan for more exports."
         )
 
-    # Check export quality feature access (4K requires Pro tier)
-    # Note: ExportConfig uses 'quality' field (lossless/high/balanced), not 'resolution'
-    # The 4K check would apply if/when resolution field is added to the schema
-    if getattr(request.config, 'resolution', None) == "4k" and not user.has_feature("export_4k"):
-        raise HTTPException(
-            status_code=403,
-            detail="4K export requires Pro subscription or higher"
-        )
-
-    # Check export duration limits
+    # Load project first (needed for resolution and duration checks)
     project = Project.load(request.project_name)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -168,6 +159,30 @@ async def start_export(
     # SECURITY: Verify ownership
     _verify_project_ownership(project, user)
 
+    # Check video resolution limits based on subscription tier
+    # FREE_TRIAL and INDIVIDUAL are limited to 1080p max
+    # PRO and ENTERPRISE can export 4K
+    # Uses user.has_feature() which checks Firestore-verified tier (NOT local license cache)
+    if project.videos:
+        max_width = max((v.width or 0) for v in project.videos)
+        max_height = max((v.height or 0) for v in project.videos)
+
+        # 4K check (3840x2160 or higher) - requires PRO/ENTERPRISE/LIFETIME
+        if max_width >= 3840 or max_height >= 2160:
+            if not user.has_feature('export_4k'):
+                raise HTTPException(
+                    status_code=403,
+                    detail="4K export requires Pro subscription. Upgrade to export in 4K resolution."
+                )
+        # 1080p check (1920x1080 or higher) - requires at least FREE_TRIAL (EXPIRED is denied)
+        elif max_width >= 1920 or max_height >= 1080:
+            if not user.has_feature('export_1080p'):
+                raise HTTPException(
+                    status_code=403,
+                    detail="1080p export requires an active subscription. Please renew your subscription."
+                )
+
+    # Check export duration limits
     max_duration = user.get_feature_limit("max_export_duration_minutes") or 5
     total_duration = sum(v.duration or 0 for v in project.videos) / 60  # Convert to minutes
     if total_duration > max_duration:
@@ -457,10 +472,14 @@ async def run_export(
 
     except Exception as e:
         active_exports[export_id].status = "failed"
-        active_exports[export_id].error = str(e)
+        error_message = str(e)
+        active_exports[export_id].error = error_message
+
+        # Send user-friendly error message (don't duplicate "Export failed" prefix)
+        display_message = error_message if "Export" in error_message or "Cannot" in error_message else f"Export failed: {error_message}"
         await send_progress(
-            export_id, "error", f"Export failed: {str(e)}", 0,
-            detail="Check server logs for more details"
+            export_id, "error", display_message, 0,
+            detail=None  # Don't tell users to check logs - the message should be self-explanatory
         )
     finally:
         # Clean up

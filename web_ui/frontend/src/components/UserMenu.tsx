@@ -189,7 +189,8 @@ export default function UserMenu() {
               )}>
                 {getSubscriptionLabel()}
               </span>
-              {subscription?.status === 'trial' && (
+              {/* Only show "Trial active" for free_trial tier with trial status */}
+              {subscription?.tier === 'free_trial' && subscription?.status === 'trial' && (
                 <span className="text-[10px] text-yellow-400">
                   Trial active
                 </span>

@@ -122,21 +122,12 @@ async def preview_voice(
         param_hash = hash(f"{request.rate}_{request.volume}_{request.pitch}_{request.text}") % 100000
         segment_name = f"preview_{request.voice_id[:20]}_{param_hash}"
 
-        # Detect provider from voice_id prefix
-        # Coqui voices start with "coqui_", Piper with "piper_", etc.
-        if request.voice_id.startswith("coqui_"):
-            primary_provider = "coqui"
-            fallback_providers = ["coqui", "edge_tts"]
-        elif request.voice_id.startswith("piper_"):
-            primary_provider = "piper"
-            fallback_providers = ["piper", "edge_tts"]
-        else:
-            # Assume Edge TTS for other voice formats (e.g., en-US-AriaNeural)
-            primary_provider = "edge_tts"
-            fallback_providers = ["edge_tts", "coqui"]
-
         # Generate preview audio using RESILIENT method with automatic fallback
         # Uses circuit breaker, health monitoring, and fallback to other providers
+        # Provider is auto-detected from voice_id prefix:
+        # - coqui_* voices → Coqui provider
+        # - piper_* voices → Piper provider
+        # - Other (e.g., en-US-AriaNeural) → Edge TTS provider
         audio_path, _ = await tts_service.generate_with_resilience(
             text=request.text,
             language="en",  # Preview always uses the voice's language
@@ -146,7 +137,7 @@ async def preview_voice(
             rate=request.rate,
             volume=request.volume,
             pitch=request.pitch,
-            fallback_providers=fallback_providers,
+            # Let generate_with_resilience auto-detect provider and fallbacks from voice_id
         )
 
         # Get audio duration
@@ -213,6 +204,11 @@ async def generate_tts(
             )
         else:
             # Use resilient method with automatic fallback on failure
+            # The provider is auto-detected from voice_id prefix:
+            # - coqui_* voices → Coqui provider
+            # - piper_* voices → Piper provider
+            # - Other (e.g., en-US-AriaNeural) → Edge TTS provider
+            # Fallback providers are also auto-generated based on detected provider
             audio_path, subtitle_path = await tts_service.generate_with_resilience(
                 text=request.text,
                 language=request.language,
@@ -223,7 +219,7 @@ async def generate_tts(
                 volume=request.volume,
                 pitch=request.pitch,
                 orientation=request.orientation,
-                fallback_providers=["edge_tts", "coqui"],
+                # Let generate_with_resilience auto-detect provider and fallbacks from voice_id
             )
 
         duration = FFmpegUtils.get_media_duration(audio_path)

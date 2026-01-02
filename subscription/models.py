@@ -8,7 +8,7 @@ Uses industry-standard patterns from Netflix, Spotify, and similar services.
 from enum import Enum
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 
 
@@ -416,8 +416,15 @@ class UserSubscription:
     def is_active(self) -> bool:
         """Check if subscription is active"""
         if self.status in (SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIAL):
-            if self.expires_at and datetime.now() > self.expires_at:
-                return False
+            if self.expires_at:
+                # Use timezone-aware datetime for comparison
+                now = datetime.now(timezone.utc)
+                expires_at = self.expires_at
+                # If expires_at is naive, assume it's UTC
+                if expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+                if now > expires_at:
+                    return False
             return True
         return False
 
@@ -426,7 +433,13 @@ class UserSubscription:
         if not self.expires_at:
             return 999 if self.tier == SubscriptionTier.LIFETIME else 0
 
-        remaining = (self.expires_at - datetime.now()).days
+        # Use timezone-aware datetime for comparison
+        now = datetime.now(timezone.utc)
+        expires_at = self.expires_at
+        # If expires_at is naive, assume it's UTC
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        remaining = (expires_at - now).days
         return max(0, remaining)
 
     def to_dict(self) -> dict:

@@ -2588,7 +2588,12 @@ Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,
                     logger.error("Videos are not compatible for combination:")
                     for warning in warnings:
                         logger.error(f"  {warning}")
-                    return False
+                    # Raise exception with user-friendly error message
+                    error_details = "\n".join(f"• {w}" for w in warnings)
+                    raise ValueError(
+                        f"Cannot combine videos with different properties:\n{error_details}\n\n"
+                        f"Tip: Use videos with the same orientation (all landscape or all portrait) for best results."
+                    )
 
             if warnings:
                 logger.warning("Video compatibility warnings:")

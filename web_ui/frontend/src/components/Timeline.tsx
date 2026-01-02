@@ -35,19 +35,25 @@ interface TimelineProps {
 }
 
 function formatTime(seconds: number, showMs = false): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
+  // Handle negative values
+  const isNegative = seconds < 0
+  const absSeconds = Math.abs(seconds)
+
+  // Round to 1 decimal place first to avoid edge cases
+  const roundedSeconds = Math.round(absSeconds * 10) / 10
+  const mins = Math.floor(roundedSeconds / 60)
+  const secs = roundedSeconds % 60
+
+  const sign = isNegative ? '-' : ''
+
   if (showMs) {
-    // Show millisecond precision: m:ss.sss
-    return `${mins}:${secs.toFixed(3).padStart(6, '0')}`
+    // Show millisecond precision: mm:ss.sss
+    return `${sign}${mins.toString().padStart(2, '0')}:${secs.toFixed(3).padStart(6, '0')}`
   }
-  // Show decisecond precision: m:ss.s (for cleaner display)
+  // Show decisecond precision: mm:ss.s (always pad for consistent width)
   const wholeSecs = Math.floor(secs)
-  const fraction = Math.round((secs - wholeSecs) * 10) / 10
-  if (fraction > 0 && fraction < 1) {
-    return `${mins}:${wholeSecs.toString().padStart(2, '0')}.${Math.round(fraction * 10)}`
-  }
-  return `${mins}:${wholeSecs.toString().padStart(2, '0')}`
+  const fraction = Math.round((secs - wholeSecs) * 10)
+  return `${sign}${mins.toString().padStart(2, '0')}:${wholeSecs.toString().padStart(2, '0')}.${fraction}`
 }
 
 type DragMode = 'none' | 'move' | 'resize-start' | 'resize-end'
@@ -312,6 +318,7 @@ function BGMVolumeMeter({
 function BGMTrackBlock({
   track,
   duration,
+  timelineMin = 0,
   isSelected,
   onClick,
   onDragStart,
@@ -323,6 +330,7 @@ function BGMTrackBlock({
 }: {
   track: BGMTrack
   duration: number
+  timelineMin?: number
   isSelected: boolean
   onClick: (e: React.MouseEvent) => void // Supports multi-selection with modifier keys
   onDragStart: (e: React.MouseEvent, mode: DragMode) => void
@@ -348,8 +356,8 @@ function BGMTrackBlock({
   const isTrimmedFromEnd = hasAudioDuration && trackDurationOnTimeline < remainingAudio - 0.1
   const unusedAtEnd = Math.max(0, remainingAudio - trackDurationOnTimeline)
 
-  // Calculate position
-  const leftPercent = (startTime / duration) * 100
+  // Calculate position - account for negative timeline start
+  const leftPercent = ((startTime - timelineMin) / duration) * 100
 
   // For the visual, show the FULL audio as the block width, with active portion highlighted
   const activeWidthPercent = (trackDurationOnTimeline / duration) * 100
@@ -399,7 +407,7 @@ function BGMTrackBlock({
         track.muted && 'opacity-50'
       )}
       style={{
-        left: `${Math.max(0, adjustedLeftPercent)}%`,
+        left: `${adjustedLeftPercent}%`,
         width: `${displayWidthPercent}%`,
         minWidth: '120px',
       }}
@@ -767,6 +775,7 @@ export default function Timeline({
   // Video track drag state (for dragging/trimming video clips)
   const [selectedVideoTrackId, setSelectedVideoTrackId] = useState<string | null>(null)
   const [videoDragState, setVideoDragState] = useState<DragState | null>(null)
+  const [pendingDragVideoId, setPendingDragVideoId] = useState<string | null>(null) // Track which video has pending drag for cursor
   const [videoPreviewPositions, setVideoPreviewPositions] = useState<{ [videoId: string]: { start: number; end: number; sourceStart?: number; sourceEnd?: number | null } }>({})
   // CRITICAL: Use ref to track preview positions for mouseup handler (avoids stale closure)
   const videoPreviewPositionsRef = useRef<{ [videoId: string]: { start: number; end: number; sourceStart?: number; sourceEnd?: number | null } }>({})
@@ -777,9 +786,22 @@ export default function Timeline({
   const [bgmSnapLine, setBgmSnapLine] = useState<{ time: number; type: 'start' | 'end' } | null>(null)
   const VIDEO_SNAP_THRESHOLD_SECONDS = 0.5 // Snap when within 0.5 seconds of another video/BGM edge
 
-  // Pending drag state - only becomes a real drag after mouse moves a threshold distance
-  // This allows double-clicks to work without triggering drag
-  const pendingVideoDragRef = useRef<{ videoId: string; mode: DragMode; initialX: number; initialY: number } | null>(null)
+  // Segment preview times during drag - declared early so timelineMin/Max can use it
+  const [previewTimes, setPreviewTimes] = useState<{ [segmentId: string]: { start: number; end: number; audioOffset?: number } }>({})
+
+  // Pending drag state - provides immediate visual feedback while tracking threshold for commit decision
+  // This allows double-clicks to work without triggering drag, while still showing responsive drag preview
+  const pendingVideoDragRef = useRef<{
+    videoId: string;
+    mode: DragMode;
+    initialX: number;
+    initialY: number;
+    initialStart: number;
+    initialEnd: number;
+    initialSourceStart: number;
+    initialSourceEnd: number | null;
+    thresholdCrossed: boolean;
+  } | null>(null)
   const DRAG_THRESHOLD = 5 // pixels
 
   // WebSocket for real-time timeline synchronization
@@ -807,37 +829,179 @@ export default function Timeline({
     }, [])
   })
 
-  // Calculate effective timeline duration that extends based on content
-  // This makes the timeline container dynamically grow when videos/BGM are moved beyond the original duration
-  const timelineDuration = useMemo(() => {
-    let maxDuration = baseTimelineDuration
+  // Calculate the minimum timeline start position (can be negative for trimmed videos moved before 00:00)
+  const timelineMin = useMemo(() => {
+    let minStart = 0
 
-    // Consider BGM track end times (including optimistic local overrides)
-    for (const track of effectiveBgmTracks) {
-      const endTime = track.end_time === 0 ? baseTimelineDuration : track.end_time
-      if (endTime > maxDuration) {
-        maxDuration = endTime
+    // Consider video positions (from videoPositions which includes backend data)
+    // Also account for trimmed video visualizations which extend beyond the active portion
+    for (const videoId in videoPositions) {
+      const pos = videoPositions[videoId]
+      if (pos) {
+        // Find the video to check for trim visualization
+        const video = videos.find(v => v.id === videoId)
+        const sourceStart = video?.source_start ?? 0
+        // Trimmed start visualization extends left of timeline_start by sourceStart amount
+        const visualStart = pos.start - sourceStart
+        if (visualStart < minStart) {
+          minStart = visualStart
+        }
       }
     }
 
     // Consider video preview positions (when dragging videos)
+    // Also account for trimmed visualization during drag
     for (const videoId in videoPreviewPositions) {
       const preview = videoPreviewPositions[videoId]
-      if (preview.end > maxDuration) {
-        maxDuration = preview.end
+      const sourceStart = preview.sourceStart ?? 0
+      const visualStart = preview.start - sourceStart
+      if (visualStart < minStart) {
+        minStart = visualStart
+      }
+    }
+
+    // Consider BGM track start times
+    for (const track of effectiveBgmTracks) {
+      if (track.start_time < minStart) {
+        minStart = track.start_time
       }
     }
 
     // Consider BGM preview times (when dragging BGM tracks)
     for (const trackId in bgmPreviewTimes) {
       const preview = bgmPreviewTimes[trackId]
-      if (preview.end > maxDuration) {
-        maxDuration = preview.end
+      if (preview.start < minStart) {
+        minStart = preview.start
       }
     }
 
-    return Math.max(baseTimelineDuration, maxDuration)
-  }, [baseTimelineDuration, effectiveBgmTracks, videoPreviewPositions, bgmPreviewTimes])
+    // Consider segment start times (with video offset for multi-video combined view)
+    // This ensures segments are always visible in the timeline view, even after videos are repositioned
+    for (const segment of segments) {
+      // Calculate absolute segment start time on the timeline
+      const videoOffset = (hasMultipleVideos && viewMode === 'combined' && segment.video_id)
+        ? (videoPositions[segment.video_id]?.start || 0)
+        : 0
+      const absoluteStart = videoOffset + segment.start_time
+      if (absoluteStart < minStart) {
+        minStart = absoluteStart
+      }
+    }
+
+    // Consider segment preview times (when dragging segments)
+    for (const segmentId in previewTimes) {
+      const preview = previewTimes[segmentId]
+      const segment = segments.find(s => s.id === segmentId)
+      if (segment && preview) {
+        const videoOffset = (hasMultipleVideos && viewMode === 'combined' && segment.video_id)
+          ? (videoPositions[segment.video_id]?.start || 0)
+          : 0
+        const absoluteStart = videoOffset + preview.start
+        if (absoluteStart < minStart) {
+          minStart = absoluteStart
+        }
+      }
+    }
+
+    return minStart
+  }, [videoPositions, videoPreviewPositions, effectiveBgmTracks, bgmPreviewTimes, segments, hasMultipleVideos, viewMode, previewTimes, videos])
+
+  // Calculate effective timeline end (maximum position)
+  const timelineMax = useMemo(() => {
+    let maxEnd = baseTimelineDuration
+
+    // Consider video positions with trimmed end visualization
+    for (const videoId in videoPositions) {
+      const pos = videoPositions[videoId]
+      if (pos) {
+        const video = videos.find(v => v.id === videoId)
+        const videoDuration = video?.duration || 0
+        const sourceEnd = video?.source_end ?? videoDuration
+        // Trimmed end visualization extends right of timeline_end by unused duration
+        const unusedAtEnd = videoDuration - sourceEnd
+        const visualEnd = pos.end + unusedAtEnd
+        if (visualEnd > maxEnd) {
+          maxEnd = visualEnd
+        }
+      }
+    }
+
+    // Consider BGM track end times (including optimistic local overrides)
+    for (const track of effectiveBgmTracks) {
+      const endTime = track.end_time === 0 ? baseTimelineDuration : track.end_time
+      if (endTime > maxEnd) {
+        maxEnd = endTime
+      }
+    }
+
+    // Consider video preview positions (when dragging videos)
+    // Also account for trimmed end visualization during drag
+    for (const videoId in videoPreviewPositions) {
+      const preview = videoPreviewPositions[videoId]
+      const video = videos.find(v => v.id === videoId)
+      const videoDuration = video?.duration || 0
+      const sourceEnd = preview.sourceEnd ?? videoDuration
+      const unusedAtEnd = videoDuration - sourceEnd
+      const visualEnd = preview.end + unusedAtEnd
+      if (visualEnd > maxEnd) {
+        maxEnd = visualEnd
+      }
+    }
+
+    // Consider BGM preview times (when dragging BGM tracks)
+    for (const trackId in bgmPreviewTimes) {
+      const preview = bgmPreviewTimes[trackId]
+      if (preview.end > maxEnd) {
+        maxEnd = preview.end
+      }
+    }
+
+    // Consider segment end times (with video offset for multi-video combined view)
+    // This ensures segments are always visible in the timeline view, even after videos are repositioned
+    for (const segment of segments) {
+      // Calculate absolute segment end time on the timeline
+      const videoOffset = (hasMultipleVideos && viewMode === 'combined' && segment.video_id)
+        ? (videoPositions[segment.video_id]?.start || 0)
+        : 0
+      const absoluteEnd = videoOffset + segment.end_time
+      if (absoluteEnd > maxEnd) {
+        maxEnd = absoluteEnd
+      }
+    }
+
+    // Consider segment preview times (when dragging segments)
+    for (const segmentId in previewTimes) {
+      const preview = previewTimes[segmentId]
+      const segment = segments.find(s => s.id === segmentId)
+      if (segment && preview) {
+        const videoOffset = (hasMultipleVideos && viewMode === 'combined' && segment.video_id)
+          ? (videoPositions[segment.video_id]?.start || 0)
+          : 0
+        const absoluteEnd = videoOffset + preview.end
+        if (absoluteEnd > maxEnd) {
+          maxEnd = absoluteEnd
+        }
+      }
+    }
+
+    return maxEnd
+  }, [baseTimelineDuration, effectiveBgmTracks, videoPreviewPositions, bgmPreviewTimes, segments, hasMultipleVideos, viewMode, videoPositions, previewTimes, videos])
+
+  // Calculate total timeline span (from min to max) with visual padding
+  // This adds breathing room at both edges so content doesn't stick to the timeline boundaries
+  const TIMELINE_PADDING_PERCENT = 0.02 // 2% padding on each side
+  const TIMELINE_MIN_PADDING_SECONDS = 1 // Minimum 1 second padding
+
+  const { paddedTimelineMin, timelineDuration } = useMemo(() => {
+    const rawDuration = timelineMax - timelineMin
+    // Calculate padding: 2% of content span, but at least 1 second
+    const padding = Math.max(TIMELINE_MIN_PADDING_SECONDS, rawDuration * TIMELINE_PADDING_PERCENT)
+
+    return {
+      paddedTimelineMin: timelineMin - padding,
+      timelineDuration: rawDuration + (padding * 2)
+    }
+  }, [timelineMin, timelineMax])
 
   // Timeline zoom/pan state - Premiere Pro style
   const [zoomLevel, setZoomLevel] = useState(1) // 1 = fit to view, >1 = zoomed in
@@ -1143,11 +1307,8 @@ export default function Timeline({
         newStart = bgmDragState.initialStartTime + deltaTime
         newEnd = newStart + trackDuration
 
-        // Only prevent going below 0, allow extending past timeline end (it will grow)
-        if (newStart < 0) {
-          newStart = 0
-          newEnd = trackDuration
-        }
+        // Note: Negative start times are allowed for BGM tracks
+        // Allow extending past timeline end (it will grow)
 
         // Check for snap points - snap track start or end to nearby edges
         let snappedTo: { time: number; type: 'start' | 'end' } | null = null
@@ -1322,55 +1483,169 @@ export default function Timeline({
     }
 
     // For move operations, use pending drag with threshold (to allow double-click)
+    // Store initial position data for immediate visual feedback
+    const videoPos = videoPositions[videoId]
     pendingVideoDragRef.current = {
       videoId,
       mode,
       initialX: e.clientX,
-      initialY: e.clientY
-    }
-  }, [videos, videoPositions, setSelectedSegmentId])
-
-  // Activate pending video drag when mouse moves beyond threshold
-  const activatePendingVideoDrag = useCallback(() => {
-    const pending = pendingVideoDragRef.current
-    if (!pending) return
-
-    const video = videos.find(v => v.id === pending.videoId)
-    if (!video) return
-
-    const videoPos = videoPositions[pending.videoId]
-    setVideoDragState({
-      segmentId: pending.videoId,
-      mode: pending.mode,
-      initialMouseX: pending.initialX,
-      initialStartTime: videoPos?.start || 0,
-      initialEndTime: videoPos?.end || (video.duration || 0),
-      // Capture source trim values for consistency (even for move operations)
-      // Move operations don't modify these, but having them ensures data integrity
+      initialY: e.clientY,
+      initialStart: videoPos?.start || 0,
+      initialEnd: videoPos?.end || (video.duration || 0),
       initialSourceStart: video.source_start ?? 0,
       initialSourceEnd: video.source_end ?? video.duration,
-    })
+      thresholdCrossed: false
+    }
+    // Set pending drag video ID for cursor feedback
+    setPendingDragVideoId(videoId)
+  }, [videos, videoPositions, setSelectedSegmentId])
 
-    pendingVideoDragRef.current = null
-  }, [videos, videoPositions])
-
-  // Handle pending video drag - check threshold before activating real drag
+  // Handle pending video drag - provides immediate visual feedback while tracking threshold for commit
+  // On mouseup: if threshold crossed, commit position directly; otherwise snap back
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       const pending = pendingVideoDragRef.current
       if (!pending) return
+      if (!videoTracksRef.current) return
 
-      // Check if mouse has moved beyond threshold
+      // Calculate delta and check threshold
       const dx = Math.abs(e.clientX - pending.initialX)
       const dy = Math.abs(e.clientY - pending.initialY)
-      if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
-        activatePendingVideoDrag()
+
+      // Mark threshold as crossed once exceeded
+      if (!pending.thresholdCrossed && (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD)) {
+        pending.thresholdCrossed = true
       }
+
+      // Always provide immediate visual feedback by updating preview position
+      const rect = videoTracksRef.current.getBoundingClientRect()
+      const deltaX = e.clientX - pending.initialX
+      const effectiveWidth = rect.width * zoomLevel
+      const deltaTime = (deltaX / effectiveWidth) * timelineDuration
+
+      // Calculate new position for move operation
+      const currentClipDuration = pending.initialEnd - pending.initialStart
+      let newStart = pending.initialStart + deltaTime
+      let newEnd = newStart + currentClipDuration
+
+      // Note: Negative timeline_start is allowed for positioning trimmed videos
+      // The preview and export systems handle negative values correctly
+
+      // Collect snap points from other videos and BGM tracks
+      const videoSnapPoints: number[] = []
+      videos.forEach(v => {
+        if (v.id === pending.videoId) return
+        const vPos = videoPositions[v.id]
+        if (vPos) {
+          videoSnapPoints.push(vPos.start)
+          videoSnapPoints.push(vPos.end)
+        }
+      })
+      // Also add BGM track edges as snap points
+      bgmTracks.forEach(t => {
+        videoSnapPoints.push(t.start_time)
+        videoSnapPoints.push(t.end_time === 0 ? timelineDuration : t.end_time)
+      })
+      // Add timeline boundaries
+      videoSnapPoints.push(0)
+      videoSnapPoints.push(timelineDuration)
+
+      // Check for snap points - snap video to CLOSEST nearby edge (not first found)
+      // This allows dragging past one snap point to reach another (e.g., past a video to reach 00:00)
+      let closestSnap: { point: number; distance: number; type: 'start' | 'end' } | null = null
+
+      // Check if video START is near any snap point - find closest
+      for (const snapPoint of videoSnapPoints) {
+        const distance = Math.abs(newStart - snapPoint)
+        if (distance < VIDEO_SNAP_THRESHOLD_SECONDS) {
+          if (!closestSnap || distance < closestSnap.distance) {
+            closestSnap = { point: snapPoint, distance, type: 'start' }
+          }
+        }
+      }
+
+      // Also check if video END is near any snap point - might be closer
+      for (const snapPoint of videoSnapPoints) {
+        const distance = Math.abs(newEnd - snapPoint)
+        if (distance < VIDEO_SNAP_THRESHOLD_SECONDS) {
+          if (!closestSnap || distance < closestSnap.distance) {
+            closestSnap = { point: snapPoint, distance, type: 'end' }
+          }
+        }
+      }
+
+      // Apply the closest snap if found
+      let snappedTo: { time: number; type: 'start' | 'end' } | null = null
+      if (closestSnap) {
+        if (closestSnap.type === 'start') {
+          newStart = closestSnap.point
+          newEnd = newStart + currentClipDuration
+        } else {
+          newEnd = closestSnap.point
+          newStart = newEnd - currentClipDuration
+        }
+        snappedTo = { time: closestSnap.point, type: closestSnap.type }
+      }
+
+      setVideoSnapLine(snappedTo)
+
+      // Update preview position for immediate visual feedback
+      const newPreview = {
+        start: newStart,
+        end: newEnd,
+        sourceStart: pending.initialSourceStart,
+        sourceEnd: pending.initialSourceEnd
+      }
+      videoPreviewPositionsRef.current = {
+        ...videoPreviewPositionsRef.current,
+        [pending.videoId]: newPreview
+      }
+      setVideoPreviewPositions(prev => ({
+        ...prev,
+        [pending.videoId]: newPreview
+      }))
     }
 
     const handleMouseUp = () => {
-      // Clear pending drag on mouseup (click without drag)
+      const pending = pendingVideoDragRef.current
+      if (!pending) return
+
+      // Clear snap line
+      setVideoSnapLine(null)
+
+      const videoId = pending.videoId
+      const preview = videoPreviewPositionsRef.current[videoId]
+
+      if (pending.thresholdCrossed && preview) {
+        // Threshold was crossed - commit the position change directly
+        // (Don't use activatePendingVideoDrag - it sets state but mouseup already happened)
+
+        // OPTIMISTIC UI: Update parent state immediately for instant feedback
+        onVideoPositionUpdate?.(videoId, {
+          timeline_start: preview.start,
+          timeline_end: preview.end,
+          source_start: preview.sourceStart,
+          source_end: preview.sourceEnd
+        })
+
+        // Send update via WebSocket for real-time sync with backend
+        wsUpdateVideoPosition(videoId, preview.start, preview.end)
+        console.log(`[Timeline] Video moved via pending drag: ${preview.start.toFixed(1)}s - ${preview.end.toFixed(1)}s`)
+      }
+
+      // Always clear preview position (snap back if threshold not crossed, or cleanup after commit)
+      const refNext = { ...videoPreviewPositionsRef.current }
+      delete refNext[videoId]
+      videoPreviewPositionsRef.current = refNext
+      setVideoPreviewPositions(prev => {
+        const next = { ...prev }
+        delete next[videoId]
+        return next
+      })
+
       pendingVideoDragRef.current = null
+      // Clear pending drag video ID for cursor feedback
+      setPendingDragVideoId(null)
     }
 
     window.addEventListener('mousemove', handleMouseMove)
@@ -1380,7 +1655,7 @@ export default function Timeline({
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [activatePendingVideoDrag])
+  }, [zoomLevel, timelineDuration, onVideoPositionUpdate, wsUpdateVideoPosition, videos, videoPositions, bgmTracks])
 
   // Handle video track drag effect (actual dragging)
   useEffect(() => {
@@ -1431,36 +1706,43 @@ export default function Timeline({
         newStart = videoDragState.initialStartTime + deltaTime
         newEnd = newStart + currentClipDuration
 
-        // Clamp to timeline bounds (can't go negative)
-        if (newStart < 0) {
-          newStart = 0
-          newEnd = currentClipDuration
-        }
+        // Note: Negative timeline_start is allowed for positioning trimmed videos
         // Allow extending timeline by moving video to the right (no max clamp)
 
-        // Check for snap points - snap video start or end to nearby edges
-        let snappedTo: { time: number; type: 'start' | 'end' } | null = null
+        // Check for snap points - snap video to CLOSEST nearby edge (not first found)
+        let closestSnap: { point: number; distance: number; type: 'start' | 'end' } | null = null
 
-        // Check if video START is near any snap point
+        // Check if video START is near any snap point - find closest
         for (const snapPoint of videoSnapPoints) {
-          if (Math.abs(newStart - snapPoint) < VIDEO_SNAP_THRESHOLD_SECONDS) {
-            newStart = snapPoint
-            newEnd = newStart + currentClipDuration
-            snappedTo = { time: snapPoint, type: 'start' }
-            break
+          const distance = Math.abs(newStart - snapPoint)
+          if (distance < VIDEO_SNAP_THRESHOLD_SECONDS) {
+            if (!closestSnap || distance < closestSnap.distance) {
+              closestSnap = { point: snapPoint, distance, type: 'start' }
+            }
           }
         }
 
-        // If not snapped by start, check if video END is near any snap point
-        if (!snappedTo) {
-          for (const snapPoint of videoSnapPoints) {
-            if (Math.abs(newEnd - snapPoint) < VIDEO_SNAP_THRESHOLD_SECONDS) {
-              newEnd = snapPoint
-              newStart = newEnd - currentClipDuration
-              snappedTo = { time: snapPoint, type: 'end' }
-              break
+        // Also check if video END is near any snap point - might be closer
+        for (const snapPoint of videoSnapPoints) {
+          const distance = Math.abs(newEnd - snapPoint)
+          if (distance < VIDEO_SNAP_THRESHOLD_SECONDS) {
+            if (!closestSnap || distance < closestSnap.distance) {
+              closestSnap = { point: snapPoint, distance, type: 'end' }
             }
           }
+        }
+
+        // Apply the closest snap if found
+        let snappedTo: { time: number; type: 'start' | 'end' } | null = null
+        if (closestSnap) {
+          if (closestSnap.type === 'start') {
+            newStart = closestSnap.point
+            newEnd = newStart + currentClipDuration
+          } else {
+            newEnd = closestSnap.point
+            newStart = newEnd - currentClipDuration
+          }
+          snappedTo = { time: closestSnap.point, type: closestSnap.type }
         }
 
         setVideoSnapLine(snappedTo)
@@ -1470,8 +1752,7 @@ export default function Timeline({
         // IMPORTANT: Source start moves by same delta to skip that content
         newStart = videoDragState.initialStartTime + deltaTime
 
-        // Can't go below 0
-        newStart = Math.max(0, newStart)
+        // Note: Negative timeline_start is allowed for positioning trimmed videos
         // Can't make clip shorter than minimum duration
         newStart = Math.min(newStart, videoDragState.initialEndTime - MIN_CLIP_DURATION)
 
@@ -1621,18 +1902,58 @@ export default function Timeline({
   const timelineRef = useRef<HTMLDivElement>(null)
   const voiceOverTrackRef = useRef<HTMLDivElement>(null)
   const [dragState, setDragState] = useState<DragState | null>(null)
-  const [previewTimes, setPreviewTimes] = useState<{ [segmentId: string]: { start: number; end: number; audioOffset?: number } }>({})
+  // Note: previewTimes is declared earlier (before timelineMin/Max calculations) so those can use it
 
   // Snap line state for visual indicator when dragging near segment edges
   const [snapLine, setSnapLine] = useState<{ time: number; type: 'start' | 'end' } | null>(null)
   const SNAP_THRESHOLD_SECONDS = 0.5 // Snap when within 0.5 seconds of another segment edge
 
-  // Generate time markers
+  // Helper function to convert timeline time to percentage position
+  // This accounts for negative timeline positions and uses padded bounds for visual breathing room
+  const timeToPercent = useCallback((time: number): number => {
+    if (timelineDuration === 0) return 0
+    return ((time - paddedTimelineMin) / timelineDuration) * 100
+  }, [paddedTimelineMin, timelineDuration])
+
+  // Generate time markers with appropriate intervals based on duration
+  // Aim for roughly 10-15 visible labels to prevent overlap
+  // Markers start from timelineMin (can be negative) and go to timelineMax
   const markers = useMemo(() => {
-    const interval = timelineDuration > 300 ? 60 : timelineDuration > 60 ? 10 : 5
-    const count = Math.floor(timelineDuration / interval)
-    return Array.from({ length: count + 1 }, (_, i) => i * interval)
-  }, [timelineDuration])
+    let interval: number
+    if (timelineDuration > 3600) {
+      // > 1 hour: 10-minute intervals
+      interval = 600
+    } else if (timelineDuration > 1800) {
+      // > 30 min: 5-minute intervals
+      interval = 300
+    } else if (timelineDuration > 600) {
+      // > 10 min: 2-minute intervals
+      interval = 120
+    } else if (timelineDuration > 300) {
+      // > 5 min: 1-minute intervals
+      interval = 60
+    } else if (timelineDuration > 60) {
+      // > 1 min: 30-second intervals
+      interval = 30
+    } else if (timelineDuration > 30) {
+      // > 30 sec: 10-second intervals
+      interval = 10
+    } else {
+      // <= 30 sec: 5-second intervals
+      interval = 5
+    }
+
+    // Start from a marker at or before timelineMin
+    const startMarker = Math.floor(timelineMin / interval) * interval
+    const endMarker = Math.ceil(timelineMax / interval) * interval
+    const result: number[] = []
+
+    for (let t = startMarker; t <= endMarker; t += interval) {
+      result.push(t)
+    }
+
+    return result
+  }, [timelineDuration, timelineMin, timelineMax])
 
   // Handle drag start
   const handleDragStart = useCallback((segmentId: string, e: React.MouseEvent, mode: DragMode) => {
@@ -1922,7 +2243,7 @@ export default function Timeline({
       if (!playheadContainerRef.current) return
       const rect = playheadContainerRef.current.getBoundingClientRect()
       const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-      const newTime = pos * timelineDuration
+      const newTime = timelineMin + pos * timelineDuration
       setCurrentTime(newTime)
     }
 
@@ -1937,15 +2258,15 @@ export default function Timeline({
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isPlayheadDragging, timelineDuration, setCurrentTime])
+  }, [isPlayheadDragging, timelineMin, timelineDuration, setCurrentTime])
 
   // Handle scrubber/ruler click to position playhead
   const handleScrubberClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    const newTime = pos * timelineDuration
+    const newTime = timelineMin + pos * timelineDuration
     setCurrentTime(newTime)
-  }, [timelineDuration, setCurrentTime])
+  }, [timelineMin, timelineDuration, setCurrentTime])
 
   // Handle scrubber drag for continuous scrubbing
   const handleScrubberMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -1973,7 +2294,9 @@ export default function Timeline({
     }
   }
 
-  const playheadPercent = (currentTime / timelineDuration) * 100
+  // Calculate playhead position, accounting for negative timeline start
+  // Clamp to 0-100% to prevent overflow beyond container
+  const playheadPercent = Math.max(0, Math.min(100, timeToPercent(currentTime)))
 
   // Detect which videos are at the current playhead position (for smart Add button)
   const videosAtPlayhead = useMemo(() => {
@@ -2163,7 +2486,7 @@ export default function Timeline({
             </button>
           </div>
 
-          <span className="text-xs font-mono text-text-muted">
+          <span className="text-xs font-mono tabular-nums text-text-muted">
             {formatTime(currentTime)} / {formatTime(timelineDuration)}
           </span>
         </div>
@@ -2197,8 +2520,8 @@ export default function Timeline({
         {markers.map((time) => (
           <div
             key={time}
-            className="absolute top-1 text-[10px] font-mono text-text-muted transform -translate-x-1/2 pointer-events-none"
-            style={{ left: `${(time / timelineDuration) * 100}%` }}
+            className="absolute top-1 text-[10px] font-mono tabular-nums text-text-muted transform -translate-x-1/2 pointer-events-none"
+            style={{ left: `${timeToPercent(time)}%` }}
           >
             {formatTime(time)}
           </div>
@@ -2209,7 +2532,7 @@ export default function Timeline({
           <div
             key={`tick-${time}`}
             className="absolute bottom-0 w-px h-2 bg-terminal-border pointer-events-none"
-            style={{ left: `${(time / timelineDuration) * 100}%` }}
+            style={{ left: `${timeToPercent(time)}%` }}
           />
         ))}
 
@@ -2229,7 +2552,7 @@ export default function Timeline({
         </div>
 
         {/* Current time indicator */}
-        <div className="absolute right-2 top-1 text-[10px] font-mono text-accent-red pointer-events-none">
+        <div className="absolute right-2 top-1 text-[10px] font-mono tabular-nums text-accent-red pointer-events-none">
           {formatTime(currentTime)}
         </div>
       </div>
@@ -2251,15 +2574,15 @@ export default function Timeline({
               <div
                 key={time}
                 className="absolute top-0 bottom-0 w-px bg-terminal-border/50"
-                style={{ left: `${(time / timelineDuration) * 100}%` }}
+                style={{ left: `${timeToPercent(time)}%` }}
               />
             ))}
 
-            {/* Video Snap Line Indicator */}
-            {videoSnapLine && videoDragState && (
+            {/* Video Snap Line Indicator - shows during both pending drag and active drag */}
+            {videoSnapLine && (
               <div
                 className="absolute top-0 bottom-0 w-0.5 bg-green-400 z-50 pointer-events-none"
-                style={{ left: `${(videoSnapLine.time / timelineDuration) * 100}%` }}
+                style={{ left: `${timeToPercent(videoSnapLine.time)}%` }}
               >
                 <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-green-500 text-white text-[10px] px-1 rounded whitespace-nowrap">
                   {videoSnapLine.time.toFixed(1)}s
@@ -2275,7 +2598,8 @@ export default function Timeline({
             {sortedVideos.map((video, index) => {
               const trackColor = videoTrackColors[index % videoTrackColors.length]
               const isSelectedTrack = video.id === selectedVideoTrackId
-              const isDraggingThis = videoDragState?.segmentId === video.id
+              // Check both active drag state and pending drag for cursor feedback
+              const isDraggingThis = videoDragState?.segmentId === video.id || pendingDragVideoId === video.id
               const videoPos = videoPositions[video.id]
 
               // Use preview position if dragging, otherwise use calculated position
@@ -2307,7 +2631,8 @@ export default function Timeline({
               const displayWidthPercent = Math.max(totalVisualWidth, 2)
 
               // Adjust left position to account for trimmed start portion
-              const baseLeftPercent = (displayStart / timelineDuration) * 100
+              // Use timeToPercent to handle negative timeline positions correctly
+              const baseLeftPercent = timeToPercent(displayStart)
               const adjustedLeftPercent = baseLeftPercent - trimmedStartWidthPercent
 
               // Proportions within the block
@@ -2325,7 +2650,7 @@ export default function Timeline({
                   style={{
                     top: `${index * 48 + 4}px`,
                     height: '44px',
-                    left: `${Math.max(0, adjustedLeftPercent)}%`,
+                    left: `${adjustedLeftPercent}%`,
                     width: `${displayWidthPercent}%`,
                   }}
                 >
@@ -2367,7 +2692,8 @@ export default function Timeline({
                       onClick={(e) => {
                         e.stopPropagation()
                         setSelectedVideoTrackId(video.id)
-                        handleTimelineClick(e, video.id)
+                        // Note: Don't call handleTimelineClick here - clicking on video bar
+                        // should only select it, not move the playhead
                       }}
                     >
                       {/* Left resize handle - trim from start */}
@@ -2415,12 +2741,12 @@ export default function Timeline({
                       )}
                     </div>
 
-                    {/* Video content area - drag to move video, double-click to set playhead */}
+                    {/* Video content area - drag to move video */}
                     {/* In multi-video mode, segments are shown on the Voice Over track instead */}
                     <div
                       className={clsx(
                         'relative flex-1 pr-3 overflow-hidden',
-                        isDraggingThis ? 'cursor-grabbing' : 'cursor-pointer'
+                        isDraggingThis ? 'cursor-grabbing' : 'cursor-grab'
                       )}
                       onMouseDown={(e) => {
                         e.stopPropagation()
@@ -2471,9 +2797,11 @@ export default function Timeline({
 
                 {/* Time display on hover/drag */}
                 {(isSelectedTrack || isDraggingThis) && (
-                  <div className="absolute -bottom-5 left-0 right-0 flex justify-between text-[9px] font-mono text-purple-400 pointer-events-none px-1">
+                  <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-mono text-purple-400 pointer-events-none tabular-nums">
                     <span>{formatTime(displayStart)}</span>
+                    <span className="text-text-muted mx-1">|</span>
                     <span className="text-text-muted">{formatTime(video.duration || 0)}</span>
+                    <span className="text-text-muted mx-1">|</span>
                     <span>{formatTime(displayEnd)}</span>
                   </div>
                 )}
@@ -2523,7 +2851,7 @@ export default function Timeline({
               <div
                 key={time}
                 className="absolute top-0 bottom-0 w-px bg-terminal-border"
-                style={{ left: `${(time / timelineDuration) * 100}%` }}
+                style={{ left: `${timeToPercent(time)}%` }}
               />
             ))}
 
@@ -2531,7 +2859,7 @@ export default function Timeline({
             {snapLine && dragState && (
               <div
                 className="absolute top-0 bottom-0 w-0.5 bg-green-400 z-50 pointer-events-none"
-                style={{ left: `${(snapLine.time / timelineDuration) * 100}%` }}
+                style={{ left: `${timeToPercent(snapLine.time)}%` }}
               >
                 <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-green-500 text-white text-[10px] px-1 rounded whitespace-nowrap">
                   {snapLine.time.toFixed(1)}s
@@ -2629,7 +2957,7 @@ export default function Timeline({
             <div
               key={time}
               className="absolute top-0 bottom-0 w-px bg-terminal-border/50"
-              style={{ left: `${(time / timelineDuration) * 100}%` }}
+              style={{ left: `${timeToPercent(time)}%` }}
             />
           ))}
 
@@ -2637,7 +2965,7 @@ export default function Timeline({
           {snapLine && dragState && (
             <div
               className="absolute top-0 bottom-0 w-0.5 bg-green-400 z-50 pointer-events-none"
-              style={{ left: `${(snapLine.time / timelineDuration) * 100}%` }}
+              style={{ left: `${timeToPercent(snapLine.time)}%` }}
             >
               {/* Snap indicator labels */}
               <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-green-500 text-white text-[10px] px-1 rounded whitespace-nowrap">
@@ -2823,7 +3151,7 @@ export default function Timeline({
             <div
               key={time}
               className="absolute top-0 bottom-0 w-px bg-terminal-border/50"
-              style={{ left: `${(time / timelineDuration) * 100}%` }}
+              style={{ left: `${timeToPercent(time)}%` }}
             />
           ))}
 
@@ -2831,7 +3159,7 @@ export default function Timeline({
           {bgmSnapLine && bgmDragState && (
             <div
               className="absolute top-0 bottom-0 w-0.5 bg-green-400 z-50 pointer-events-none"
-              style={{ left: `${(bgmSnapLine.time / timelineDuration) * 100}%` }}
+              style={{ left: `${timeToPercent(bgmSnapLine.time)}%` }}
             >
               <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-green-500 text-white text-[10px] px-1 rounded whitespace-nowrap">
                 {bgmSnapLine.time.toFixed(1)}s
@@ -2853,6 +3181,7 @@ export default function Timeline({
                 <BGMTrackBlock
                   track={track}
                   duration={timelineDuration}
+                  timelineMin={timelineMin}
                   isSelected={selectedBgmTrackIds.has(track.id)}
                   onClick={(e) => handleBgmTrackSelect(track.id, e)}
                   onDragStart={(e, mode) => handleBgmDragStart(track.id, e, mode)}

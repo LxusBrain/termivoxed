@@ -25,6 +25,8 @@ import {
   WifiOff,
   RefreshCw,
   Monitor,
+  Smartphone,
+  Square,
 } from 'lucide-react'
 import { projectsApi, segmentsApi, exportApi, videosApi, ttsApi, WS_BASE_URL, type BGMTrack } from '../api/client'
 import { useAppStore } from '../stores/appStore'
@@ -89,6 +91,8 @@ interface VideoItem {
   path: string
   order: number
   duration?: number
+  width?: number
+  height?: number
   orientation?: string
   segments_count: number
   file_exists: boolean
@@ -183,10 +187,37 @@ function VideoManagerPanel({
       // Upload the video file
       const uploadResponse = await videosApi.upload(file)
       const uploadedPath = uploadResponse.data.path
+      const uploadedOrientation = uploadResponse.data.orientation
+      const uploadedWidth = uploadResponse.data.width
+      const uploadedHeight = uploadResponse.data.height
 
       // Add to project
-      await projectsApi.addVideo(projectName, uploadedPath, file.name.replace(/\.[^/.]+$/, ''))
-      toast.success('Video added to project')
+      const addResponse = await projectsApi.addVideo(projectName, uploadedPath, file.name.replace(/\.[^/.]+$/, ''))
+
+      // Show video info in success message
+      const dimensionInfo = uploadedWidth && uploadedHeight
+        ? ` (${uploadedWidth}×${uploadedHeight}, ${uploadedOrientation || 'unknown'})`
+        : ''
+      toast.success(`Video added${dimensionInfo}`)
+
+      // Check for compatibility warnings
+      const warnings = addResponse.data.compatibility_warnings
+      if (warnings && warnings.length > 0) {
+        // Show compatibility warning toast that stays longer
+        toast.error(
+          <div>
+            <strong className="flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> Video Compatibility Warning</strong>
+            <ul className="mt-1 text-sm list-disc list-inside">
+              {warnings.slice(0, 3).map((w: string, i: number) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+            <p className="mt-1 text-xs">Videos with different orientations may not export correctly.</p>
+          </div>,
+          { duration: 8000 }
+        )
+      }
+
       setShowAddVideo(false)
       onRefresh()
     } catch {
@@ -274,10 +305,22 @@ function VideoManagerPanel({
                       {video.duration && (
                         <span>{Math.floor(video.duration / 60)}:{String(Math.floor(video.duration % 60)).padStart(2, '0')}</span>
                       )}
+                      {video.width && video.height && (
+                        <>
+                          <span className="text-terminal-border">•</span>
+                          <span>{video.width}×{video.height}</span>
+                        </>
+                      )}
                       {video.orientation && (
                         <>
                           <span className="text-terminal-border">•</span>
-                          <span>{video.orientation}</span>
+                          <span className={`flex items-center gap-1 ${
+                            video.orientation === 'horizontal' ? 'text-blue-400' :
+                            video.orientation === 'vertical' ? 'text-purple-400' :
+                            'text-green-400'
+                          }`}>
+                            {video.orientation === 'horizontal' ? <Monitor className="w-3 h-3" /> : video.orientation === 'vertical' ? <Smartphone className="w-3 h-3" /> : <Square className="w-3 h-3" />} {video.orientation}
+                          </span>
                         </>
                       )}
                       <span className="text-terminal-border">•</span>
@@ -530,6 +573,10 @@ function ExportModal({
   const [exportCompleted, setExportCompleted] = useState(false)
   const { exportProgress, setExportProgress, isExporting, setIsExporting } = useAppStore()
 
+  // Video compatibility state
+  const [compatibility, setCompatibility] = useState<{ compatible: boolean; warnings: string[] } | null>(null)
+  const [isCheckingCompatibility, setIsCheckingCompatibility] = useState(false)
+
   // Directory browser state
   const [showDirectoryBrowser, setShowDirectoryBrowser] = useState(false)
   const [directoryState, setDirectoryState] = useState<DirectoryBrowserState | null>(null)
@@ -653,6 +700,27 @@ function ExportModal({
         })
     }
   }, [isOpen, projectName, isExporting])
+
+  // Check video compatibility when modal opens (for multi-video projects)
+  useEffect(() => {
+    if (isOpen && !isExporting && videoCount > 1) {
+      setIsCheckingCompatibility(true)
+      projectsApi.checkCompatibility(projectName)
+        .then((response) => {
+          setCompatibility(response.data)
+        })
+        .catch(() => {
+          // Silently fail - compatibility check is non-critical
+          console.warn('Failed to check video compatibility')
+        })
+        .finally(() => {
+          setIsCheckingCompatibility(false)
+        })
+    } else if (videoCount <= 1) {
+      // Single video - always compatible
+      setCompatibility({ compatible: true, warnings: [] })
+    }
+  }, [isOpen, projectName, isExporting, videoCount])
 
   // Load directory contents
   const browseDirectory = async (path?: string) => {
@@ -1038,6 +1106,36 @@ function ExportModal({
               </div>
             )}
 
+            {/* Video Compatibility Warning */}
+            {videoCount > 1 && compatibility && !compatibility.compatible && (
+              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-red-500" />
+                  <span className="text-sm font-medium text-red-400">Video Compatibility Issue</span>
+                </div>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {compatibility.warnings.map((warning, i) => (
+                    <div key={i} className="text-xs p-2 rounded bg-red-500/10 text-red-400">
+                      {warning}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-red-400/80 mt-2">
+                  Export may fail or produce unexpected results. Use videos with the same orientation for best results.
+                </p>
+              </div>
+            )}
+
+            {/* Compatibility checking indicator */}
+            {videoCount > 1 && isCheckingCompatibility && (
+              <div className="mb-4 p-3 rounded-lg bg-terminal-bg border border-terminal-border">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-text-muted" />
+                  <span className="text-sm text-text-muted">Checking video compatibility...</span>
+                </div>
+              </div>
+            )}
+
             {/* TTS Service Status */}
             <div className={clsx(
               'mb-4 p-3 rounded-lg border',
@@ -1417,15 +1515,20 @@ export default function ProjectPage() {
   // Calculate video offset for combined multi-video timeline
   // Uses timeline_start if set (from user repositioning), otherwise falls back to order-based calculation
   // IMPORTANT: Uses local `videos` state for consistency with optimistic updates
+  // NOTE: Single videos CAN have timeline_start if user repositions them (creates empty space before)
   const videoOffset = useMemo(() => {
-    if (!project || !effectiveActiveVideo || videos.length <= 1) return 0
+    if (!project || !effectiveActiveVideo) return 0
 
     // If timeline_start is explicitly set on this video, use it directly
+    // This works for BOTH single and multi-video mode - single video with empty space before it
     if (effectiveActiveVideo.timeline_start !== null && effectiveActiveVideo.timeline_start !== undefined) {
       return effectiveActiveVideo.timeline_start
     }
 
-    // Fallback: calculate based on order and cumulative durations
+    // For single video without explicit timeline_start, no offset needed
+    if (videos.length <= 1) return 0
+
+    // Fallback for multi-video: calculate based on order and cumulative durations
     let offset = 0
     const sortedVideos = [...videos].sort((a, b) => a.order - b.order)
 
@@ -1544,6 +1647,8 @@ export default function ProjectPage() {
           path: v.path,
           order: v.order,
           duration: v.duration ?? undefined,
+          width: v.width ?? undefined,
+          height: v.height ?? undefined,
           orientation: v.orientation ?? undefined,
           segments_count: v.segments_count,
           file_exists: v.file_exists,

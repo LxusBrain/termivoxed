@@ -33,6 +33,9 @@ import SubtitleStyler from './shared/SubtitleStyler'
 import AIProviderSelector from './shared/AIProviderSelector'
 import type { Segment } from '../types'
 
+// Providers that process locally and don't require consent
+const LOCAL_PROVIDERS = ['coqui', 'piper']
+
 interface AddSegmentModalProps {
   isOpen: boolean
   onClose: () => void
@@ -252,10 +255,13 @@ export default function AddSegmentModal({
       return
     }
 
-    // Check TTS consent before generating
-    const hasConsent = await checkTTSConsent()
-    if (!hasConsent) {
-      return
+    // Only check TTS consent for cloud providers - local providers (Coqui, Piper) don't need consent
+    const requiresConsent = !LOCAL_PROVIDERS.includes(activeProvider?.toLowerCase() || '')
+    if (requiresConsent) {
+      const hasConsent = await checkTTSConsent()
+      if (!hasConsent) {
+        return
+      }
     }
 
     setIsLoadingPreview(true)

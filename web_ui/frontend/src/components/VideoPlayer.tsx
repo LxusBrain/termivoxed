@@ -4,6 +4,9 @@ import { useAppStore } from '../stores/appStore'
 import clsx from 'clsx'
 import type { BGMTrack } from '../api/client'
 
+// Access store directly for getState() in event handlers
+const appStore = useAppStore
+
 interface VideoPlayerProps {
   videoUrl: string
   duration: number
@@ -37,6 +40,15 @@ export default function VideoPlayer({ videoUrl, duration, videoOffset = 0, bgmTr
   const lastSeekTimeRef = useRef<number>(0)
   const seekDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Track if user has seeked to a position outside video bounds (empty timeline space)
+  // This prevents timeupdate from snapping back to video position
+  const isSeekingOutsideBoundsRef = useRef<boolean>(false)
+  const outsideBoundsTimeRef = useRef<number>(0)
+
+  // Track last user seek for snap-back protection
+  const lastUserSeekTimeRef = useRef<number>(0)
+  const lastCurrentTimeRef = useRef<number>(0)
+
   const { currentTime, setCurrentTime, isPlaying, setIsPlaying, segments, selectedSegmentId } =
     useAppStore()
 
@@ -50,8 +62,25 @@ export default function VideoPlayer({ videoUrl, duration, videoOffset = 0, bgmTr
     if (!video) return
 
     const handleTimeUpdate = () => {
+      // CRITICAL: Don't overwrite currentTime if user has seeked to empty timeline space
+      if (isSeekingOutsideBoundsRef.current) {
+        return
+      }
+
+      // Calculate the absolute timeline time we would set
+      const absoluteTime = video.currentTime + videoOffset
+
+      // Protect recent user seeks from being overwritten by stale timeupdate events
+      // Only block if: (1) user seeked recently AND (2) video is at a different position
+      const timeSinceUserSeek = Date.now() - lastUserSeekTimeRef.current
+      if (timeSinceUserSeek < 500) {
+        const actualStoreTime = appStore.getState().currentTime
+        const storeDiff = Math.abs(actualStoreTime - absoluteTime)
+        if (storeDiff > 1.0) return
+      }
+
       // Report absolute timeline time (video time + offset)
-      setCurrentTime(video.currentTime + videoOffset)
+      setCurrentTime(absoluteTime)
     }
 
     const handlePlay = () => setIsPlaying(true)
@@ -78,11 +107,23 @@ export default function VideoPlayer({ videoUrl, duration, videoOffset = 0, bgmTr
     const video = videoRef.current
     if (!video) return
 
+    // Track significant changes as user-initiated seeks (for snap-back protection)
+    const isSignificantChange = Math.abs(currentTime - lastCurrentTimeRef.current) > 0.5
+    if (isSignificantChange) {
+      lastUserSeekTimeRef.current = Date.now()
+    }
+    lastCurrentTimeRef.current = currentTime
+
     // Calculate video-relative time from absolute timeline time
     const videoRelativeTime = currentTime - videoOffset
 
-    // Only seek if the time is within this video's range
+    // Check if time is within this video's range
     if (videoRelativeTime >= 0 && videoRelativeTime <= duration) {
+      // User seeked INSIDE video bounds - clear the outside bounds flag
+      if (isSeekingOutsideBoundsRef.current) {
+        isSeekingOutsideBoundsRef.current = false
+      }
+
       const timeDiff = Math.abs(video.currentTime - videoRelativeTime)
 
       // For small differences during normal playback, don't seek
@@ -110,6 +151,25 @@ export default function VideoPlayer({ videoUrl, duration, videoOffset = 0, bgmTr
         video.currentTime = videoRelativeTime
         lastSeekTimeRef.current = now
       }
+    } else {
+      // User seeked OUTSIDE video bounds (empty timeline space before or after video)
+      // Set the flag to prevent timeupdate from snapping back
+      isSeekingOutsideBoundsRef.current = true
+      outsideBoundsTimeRef.current = currentTime
+
+      // Pause the video since there's nothing to show at this position
+      if (!video.paused) {
+        video.pause()
+      }
+
+      // Position video element at the nearest valid boundary (for visual preview)
+      // If seeking before video: position video at start (0)
+      // If seeking after video: position video at end
+      if (videoRelativeTime < 0) {
+        video.currentTime = 0
+      } else if (videoRelativeTime > duration) {
+        video.currentTime = duration
+      }
     }
   }, [currentTime, videoOffset, duration, isPlaying])
 
@@ -119,11 +179,25 @@ export default function VideoPlayer({ videoUrl, duration, videoOffset = 0, bgmTr
     if (!video) return
 
     if (isPlaying && video.paused) {
+      // If user tries to play from outside video bounds, seek to nearest valid position first
+      if (isSeekingOutsideBoundsRef.current) {
+        const videoRelativeTime = currentTime - videoOffset
+        if (videoRelativeTime < 0) {
+          // Before video - seek to start and clear flag
+          video.currentTime = 0
+          setCurrentTime(videoOffset) // Update store to video start
+        } else if (videoRelativeTime > duration) {
+          // After video - seek to end, but don't play (nothing to play)
+          video.currentTime = duration
+          return // Don't attempt to play past end
+        }
+        isSeekingOutsideBoundsRef.current = false
+      }
       video.play().catch(e => console.warn('Failed to play video:', e))
     } else if (!isPlaying && !video.paused) {
       video.pause()
     }
-  }, [isPlaying])
+  }, [isPlaying, currentTime, videoOffset, duration, setCurrentTime])
 
   // Stop segment audio when video stops
   const stopSegmentAudio = useCallback(() => {

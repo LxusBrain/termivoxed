@@ -252,10 +252,23 @@ async def add_video_to_project(
     try:
         video = project.add_video(request.video_path, request.name)
         project.save()
+
+        # Check compatibility with existing videos after adding
+        compatibility_warnings = []
+        if len(project.videos) > 1:
+            is_compatible, warnings = project.check_video_compatibility()
+            if not is_compatible:
+                compatibility_warnings = warnings
+
         return {
             "message": "Video added successfully",
             "video_id": video.id,
-            "video_name": video.name
+            "video_name": video.name,
+            "width": video.width,
+            "height": video.height,
+            "orientation": video.orientation,
+            "duration": video.duration,
+            "compatibility_warnings": compatibility_warnings
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -341,9 +354,9 @@ async def update_video_position(
     video_duration = video.duration or 0
 
     # Update timeline position
+    # Negative timeline_start is allowed for positioning trimmed videos before 00:00
     if request.timeline_start is not None:
-        timeline_start = max(0, request.timeline_start)
-        video.timeline_start = round(timeline_start, 3)
+        video.timeline_start = round(request.timeline_start, 3)
 
     if request.timeline_end is not None:
         current_start = video.timeline_start or 0
