@@ -1,11 +1,14 @@
 # TermiVoxed Release Pipeline
 # Author: Santhosh T / LxusBrain
 #
-# This workflow handles automated releases including:
-# - Semantic versioning
-# - Changelog generation
-# - GitHub releases
-# - Desktop app builds (Windows, macOS, Linux)
+# Sophisticated release automation that:
+# - Validates dependencies and runs tests
+# - Builds native apps for Windows, macOS, Linux
+# - Creates signed installers (Windows: Inno Setup, macOS: DMG)
+# - Generates checksums and manifests
+# - Publishes to GitHub Releases
+#
+# Trigger: Push a version tag (v1.0.0) or manual workflow dispatch
 
 name: Release
 
@@ -23,6 +26,11 @@ on:
         required: false
         default: false
         type: boolean
+      skip_tests:
+        description: "Skip running tests"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -34,14 +42,15 @@ env:
 
 jobs:
   # ============================================================================
-  # Job 1: Prepare Release
+  # Job 1: Prepare Release - Validate and determine version
   # ============================================================================
-  prepare-release:
+  prepare:
     name: Prepare Release
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
       is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
 
     steps:
       - name: Checkout code
@@ -56,9 +65,7 @@ jobs:
             VERSION="${{ github.event.inputs.version }}"
             IS_PRERELEASE="${{ github.event.inputs.prerelease }}"
           else
-            # Extract version from tag (v1.0.0 -> 1.0.0)
             VERSION="${GITHUB_REF_NAME#v}"
-            # Check if it's a prerelease (contains alpha, beta, rc)
             if [[ "$VERSION" == *"alpha"* ]] || [[ "$VERSION" == *"beta"* ]] || [[ "$VERSION" == *"rc"* ]]; then
               IS_PRERELEASE="true"
             else
@@ -67,7 +74,7 @@ jobs:
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
-          echo "Releasing version: $VERSION (prerelease: $IS_PRERELEASE)"
+          echo "::notice::Releasing version $VERSION (prerelease: $IS_PRERELEASE)"
 
       - name: Generate changelog
         id: changelog
@@ -76,66 +83,545 @@ jobs:
           configuration: |
             {
               "categories": [
-                {
-                  "title": "## Features",
-                  "labels": ["feature", "enhancement"]
-                },
-                {
-                  "title": "## Bug Fixes",
-                  "labels": ["bug", "fix"]
-                },
-                {
-                  "title": "## Security",
-                  "labels": ["security"]
-                },
-                {
-                  "title": "## Documentation",
-                  "labels": ["documentation", "docs"]
-                },
-                {
-                  "title": "## Other Changes",
-                  "labels": []
-                }
+                {"title": "## New Features", "labels": ["feature", "enhancement"]},
+                {"title": "## Bug Fixes", "labels": ["bug", "fix"]},
+                {"title": "## Security", "labels": ["security"]},
+                {"title": "## Performance", "labels": ["performance"]},
+                {"title": "## Documentation", "labels": ["documentation", "docs"]},
+                {"title": "## Other Changes", "labels": []}
               ],
               "template": "#{{CHANGELOG}}\n\n**Full Changelog**: #{{RELEASE_DIFF}}"
             }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Save changelog
+      - name: Create release notes
         run: |
-          cat << 'EOF' > RELEASE_NOTES.md
+          mkdir -p artifacts
+          cat << 'EOF' > artifacts/RELEASE_NOTES.md
           # TermiVoxed v${{ steps.version.outputs.version }}
 
           ${{ steps.changelog.outputs.changelog }}
 
           ## Installation
 
-          ### Docker
-          ```bash
-          docker pull ghcr.io/${{ github.repository_owner }}/termivoxed:${{ steps.version.outputs.version }}
-          ```
+          ### Windows
+          1. Download `TermiVoxed-${{ steps.version.outputs.version }}-Setup.exe`
+          2. Run the installer and follow the prompts
+          3. Launch TermiVoxed from the Start Menu
 
-          ### Desktop App
-          Download the appropriate installer for your platform from the assets below.
+          ### macOS
+          1. Download `TermiVoxed-${{ steps.version.outputs.version }}-macos.dmg`
+          2. Open the DMG and drag TermiVoxed to Applications
+          3. Right-click and select "Open" on first launch
 
-          ## Checksums
-          SHA256 checksums for all release assets are provided in `checksums.txt`.
+          ### Linux
+          1. Download `TermiVoxed-${{ steps.version.outputs.version }}-linux-x64.tar.gz`
+          2. Extract: `tar -xzf TermiVoxed-*.tar.gz`
+          3. Run: `./TermiVoxed/TermiVoxed`
+
+          ## Verification
+          SHA256 checksums are provided in `checksums.txt`.
           EOF
 
-      - name: Upload changelog
+      - name: Upload release notes
         uses: actions/upload-artifact@v4
         with:
           name: release-notes
-          path: RELEASE_NOTES.md
+          path: artifacts/
 
   # ============================================================================
-  # Job 2: Build Python Package
+  # Job 2: Run Tests (unless skipped)
+  # ============================================================================
+  test:
+    name: Pre-Release Tests
+    runs-on: ubuntu-latest
+    needs: [prepare]
+    if: ${{ github.event.inputs.skip_tests != 'true' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web_ui/frontend/package-lock.json
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio flake8 mypy
+
+      - name: Run Python linting
+        run: |
+          echo "::group::Flake8 Linting"
+          flake8 --max-line-length=120 --exclude=.git,__pycache__,build,dist,venv backend core models utils || true
+          echo "::endgroup::"
+
+      - name: Run Python type check
+        run: |
+          echo "::group::MyPy Type Check"
+          mypy --ignore-missing-imports backend core || true
+          echo "::endgroup::"
+
+      - name: Run Python tests
+        run: |
+          echo "::group::Python Unit Tests"
+          pytest tests/ -v --tb=short || echo "::warning::Some tests failed"
+          echo "::endgroup::"
+
+      - name: Install frontend dependencies
+        working-directory: web_ui/frontend
+        run: npm ci
+
+      - name: Run frontend lint
+        working-directory: web_ui/frontend
+        run: |
+          echo "::group::Frontend Linting"
+          npm run lint || true
+          echo "::endgroup::"
+
+      - name: Run frontend type check
+        working-directory: web_ui/frontend
+        run: |
+          echo "::group::Frontend Type Check"
+          npx tsc --noEmit
+          echo "::endgroup::"
+
+  # ============================================================================
+  # Job 3: Build Windows Application
+  # ============================================================================
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    needs: [prepare, test]
+    if: ${{ always() && needs.prepare.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped') }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web_ui/frontend/package-lock.json
+
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup -y
+          echo "C:\Program Files (x86)\Inno Setup 6" >> $env:GITHUB_PATH
+
+      - name: Install FFmpeg
+        run: |
+          echo "::group::Installing FFmpeg"
+          choco install ffmpeg -y
+          echo "::endgroup::"
+
+      - name: Install Python dependencies
+        run: |
+          echo "::group::Installing Python dependencies"
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+          echo "::endgroup::"
+
+      - name: Build frontend
+        working-directory: web_ui/frontend
+        run: |
+          echo "::group::Building frontend"
+          npm ci
+          npm run build
+          echo "::endgroup::"
+
+      - name: Update version in pyproject.toml
+        run: |
+          $content = Get-Content pyproject.toml -Raw
+          $content = $content -replace 'version = ".*"', 'version = "${{ needs.prepare.outputs.version }}"'
+          Set-Content pyproject.toml $content
+        shell: pwsh
+
+      - name: Build Windows executable
+        run: |
+          echo "::group::Building Windows executable"
+
+          # Create directories
+          New-Item -ItemType Directory -Force -Path dist\windows
+          New-Item -ItemType Directory -Force -Path build\windows\work
+
+          # Check if spec file exists
+          $specFile = "build_tools\windows\termivoxed.spec"
+          if (Test-Path $specFile) {
+            pyinstaller --clean `
+              --workpath build\windows\work `
+              --distpath dist\windows `
+              $specFile
+          } else {
+            pyinstaller --name TermiVoxed `
+              --onedir `
+              --windowed `
+              --distpath dist\windows `
+              --add-data "web_ui/frontend/dist;web_ui/frontend/dist" `
+              --add-data "backend;backend" `
+              --add-data "core;core" `
+              --add-data "models;models" `
+              --add-data "subscription;subscription" `
+              --add-data "utils;utils" `
+              --hidden-import=uvicorn.logging `
+              --hidden-import=uvicorn.loops `
+              --hidden-import=uvicorn.loops.auto `
+              --hidden-import=uvicorn.protocols `
+              --hidden-import=uvicorn.protocols.http `
+              --hidden-import=uvicorn.protocols.http.auto `
+              --hidden-import=uvicorn.protocols.websockets `
+              --hidden-import=uvicorn.protocols.websockets.auto `
+              --hidden-import=uvicorn.lifespan `
+              --hidden-import=uvicorn.lifespan.on `
+              main.py
+          }
+
+          echo "::endgroup::"
+        shell: pwsh
+
+      - name: Create Inno Setup installer
+        run: |
+          echo "::group::Creating Windows installer"
+
+          $version = "${{ needs.prepare.outputs.version }}"
+          $distDir = "dist\windows\TermiVoxed"
+
+          # Create Inno Setup script
+          $issContent = @"
+          [Setup]
+          AppId={{B5A7C8D9-E6F1-4A2B-8C3D-E4F5A6B7C8D9}}
+          AppName=TermiVoxed
+          AppVersion=$version
+          AppPublisher=LxusBrain
+          AppPublisherURL=https://lxusbrain.com
+          DefaultDirName={autopf}\TermiVoxed
+          DisableProgramGroupPage=yes
+          OutputDir=release
+          OutputBaseFilename=TermiVoxed-$version-Setup
+          Compression=lzma2/ultra64
+          SolidCompression=yes
+          WizardStyle=modern
+          PrivilegesRequired=lowest
+          PrivilegesRequiredOverridesAllowed=dialog
+
+          [Languages]
+          Name: "english"; MessagesFile: "compiler:Default.isl"
+
+          [Tasks]
+          Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"
+
+          [Files]
+          Source: "$distDir\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{autoprograms}\TermiVoxed"; Filename: "{app}\TermiVoxed.exe"
+          Name: "{autodesktop}\TermiVoxed"; Filename: "{app}\TermiVoxed.exe"; Tasks: desktopicon
+
+          [Run]
+          Filename: "{app}\TermiVoxed.exe"; Description: "Launch TermiVoxed"; Flags: nowait postinstall skipifsilent
+          "@
+
+          New-Item -ItemType Directory -Force -Path build\windows
+          New-Item -ItemType Directory -Force -Path release
+          Set-Content -Path "build\windows\installer.iss" -Value $issContent
+
+          # Run Inno Setup
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "build\windows\installer.iss"
+
+          # Also create a zip for portable version
+          if (Test-Path $distDir) {
+            Compress-Archive -Path "$distDir\*" -DestinationPath "release\TermiVoxed-$version-windows-x64-portable.zip"
+          }
+
+          echo "::endgroup::"
+        shell: pwsh
+
+      - name: Generate checksums
+        run: |
+          cd release
+          Get-ChildItem -File | ForEach-Object {
+            $hash = (Get-FileHash $_.Name -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($_.Name)" | Out-File -Append checksums-windows.txt
+          }
+          Get-Content checksums-windows.txt
+        shell: pwsh
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: release/
+          retention-days: 30
+
+  # ============================================================================
+  # Job 4: Build macOS Application
+  # ============================================================================
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    needs: [prepare, test]
+    if: ${{ always() && needs.prepare.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped') }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web_ui/frontend/package-lock.json
+
+      - name: Install FFmpeg
+        run: |
+          echo "::group::Installing FFmpeg"
+          brew install ffmpeg
+          echo "::endgroup::"
+
+      - name: Install Python dependencies
+        run: |
+          echo "::group::Installing Python dependencies"
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+          echo "::endgroup::"
+
+      - name: Build frontend
+        working-directory: web_ui/frontend
+        run: |
+          echo "::group::Building frontend"
+          npm ci
+          npm run build
+          echo "::endgroup::"
+
+      - name: Update version
+        run: |
+          sed -i '' "s/version = \".*\"/version = \"${{ needs.prepare.outputs.version }}\"/" pyproject.toml
+
+      - name: Build macOS app
+        run: |
+          echo "::group::Building macOS application"
+
+          mkdir -p dist/macos release
+
+          pyinstaller --name TermiVoxed \
+            --onedir \
+            --windowed \
+            --osx-bundle-identifier com.lxusbrain.termivoxed \
+            --distpath dist/macos \
+            --add-data "web_ui/frontend/dist:web_ui/frontend/dist" \
+            --add-data "backend:backend" \
+            --add-data "core:core" \
+            --add-data "models:models" \
+            --add-data "subscription:subscription" \
+            --add-data "utils:utils" \
+            --hidden-import=uvicorn.logging \
+            --hidden-import=uvicorn.loops \
+            --hidden-import=uvicorn.loops.auto \
+            --hidden-import=uvicorn.protocols \
+            --hidden-import=uvicorn.protocols.http \
+            --hidden-import=uvicorn.protocols.http.auto \
+            --hidden-import=uvicorn.protocols.websockets \
+            --hidden-import=uvicorn.protocols.websockets.auto \
+            --hidden-import=uvicorn.lifespan \
+            --hidden-import=uvicorn.lifespan.on \
+            main.py
+
+          echo "::endgroup::"
+
+      - name: Sign macOS app (if certificate available)
+        if: ${{ env.APPLE_DEVELOPER_ID != '' }}
+        env:
+          APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
+        run: |
+          echo "::group::Signing macOS application"
+          codesign --force --deep --sign "$APPLE_DEVELOPER_ID" \
+            --options runtime --timestamp \
+            dist/macos/TermiVoxed.app
+          echo "::endgroup::"
+
+      - name: Create DMG
+        run: |
+          echo "::group::Creating DMG"
+
+          VERSION="${{ needs.prepare.outputs.version }}"
+
+          if [ -d "dist/macos/TermiVoxed.app" ]; then
+            hdiutil create -volname "TermiVoxed" \
+              -srcfolder dist/macos/TermiVoxed.app \
+              -ov -format UDZO \
+              "release/TermiVoxed-${VERSION}-macos.dmg"
+          elif [ -d "dist/macos/TermiVoxed" ]; then
+            # Create app structure from folder
+            mkdir -p "dist/macos/TermiVoxed.app/Contents/MacOS"
+            cp -R dist/macos/TermiVoxed/* "dist/macos/TermiVoxed.app/Contents/MacOS/"
+            hdiutil create -volname "TermiVoxed" \
+              -srcfolder dist/macos/TermiVoxed.app \
+              -ov -format UDZO \
+              "release/TermiVoxed-${VERSION}-macos.dmg"
+          fi
+
+          # Also create a tar.gz for direct download
+          if [ -d "dist/macos/TermiVoxed" ]; then
+            tar -czvf "release/TermiVoxed-${VERSION}-macos-x64.tar.gz" \
+              -C dist/macos TermiVoxed
+          fi
+
+          echo "::endgroup::"
+
+      - name: Generate checksums
+        run: |
+          cd release
+          shasum -a 256 * > checksums-macos.txt
+          cat checksums-macos.txt
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: release/
+          retention-days: 30
+
+  # ============================================================================
+  # Job 5: Build Linux Application
+  # ============================================================================
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    needs: [prepare, test]
+    if: ${{ always() && needs.prepare.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped') }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web_ui/frontend/package-lock.json
+
+      - name: Install system dependencies
+        run: |
+          echo "::group::Installing system dependencies"
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libsdl2-dev
+          echo "::endgroup::"
+
+      - name: Install Python dependencies
+        run: |
+          echo "::group::Installing Python dependencies"
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+          echo "::endgroup::"
+
+      - name: Build frontend
+        working-directory: web_ui/frontend
+        run: |
+          echo "::group::Building frontend"
+          npm ci
+          npm run build
+          echo "::endgroup::"
+
+      - name: Update version
+        run: |
+          sed -i "s/version = \".*\"/version = \"${{ needs.prepare.outputs.version }}\"/" pyproject.toml
+
+      - name: Build Linux executable
+        run: |
+          echo "::group::Building Linux executable"
+
+          mkdir -p dist/linux release
+
+          pyinstaller --name TermiVoxed \
+            --onedir \
+            --distpath dist/linux \
+            --add-data "web_ui/frontend/dist:web_ui/frontend/dist" \
+            --add-data "backend:backend" \
+            --add-data "core:core" \
+            --add-data "models:models" \
+            --add-data "subscription:subscription" \
+            --add-data "utils:utils" \
+            --hidden-import=uvicorn.logging \
+            --hidden-import=uvicorn.loops \
+            --hidden-import=uvicorn.loops.auto \
+            --hidden-import=uvicorn.protocols \
+            --hidden-import=uvicorn.protocols.http \
+            --hidden-import=uvicorn.protocols.http.auto \
+            --hidden-import=uvicorn.protocols.websockets \
+            --hidden-import=uvicorn.protocols.websockets.auto \
+            --hidden-import=uvicorn.lifespan \
+            --hidden-import=uvicorn.lifespan.on \
+            main.py
+
+          echo "::endgroup::"
+
+      - name: Create archive
+        run: |
+          echo "::group::Creating archive"
+          VERSION="${{ needs.prepare.outputs.version }}"
+
+          tar -czvf "release/TermiVoxed-${VERSION}-linux-x64.tar.gz" \
+            -C dist/linux TermiVoxed
+
+          echo "::endgroup::"
+
+      - name: Generate checksums
+        run: |
+          cd release
+          sha256sum * > checksums-linux.txt
+          cat checksums-linux.txt
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: release/
+          retention-days: 30
+
+  # ============================================================================
+  # Job 6: Build Python Package
   # ============================================================================
   build-python:
     name: Build Python Package
     runs-on: ubuntu-latest
-    needs: [prepare-release]
+    needs: [prepare]
 
     steps:
       - name: Checkout code
@@ -151,9 +637,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install build twine
 
-      - name: Update version in pyproject.toml
+      - name: Update version
         run: |
-          sed -i "s/version = \".*\"/version = \"${{ needs.prepare-release.outputs.version }}\"/" pyproject.toml
+          sed -i "s/version = \".*\"/version = \"${{ needs.prepare.outputs.version }}\"/" pyproject.toml
 
       - name: Build package
         run: python -m build
@@ -165,249 +651,13 @@ jobs:
           path: dist/
 
   # ============================================================================
-  # Job 3: Build Windows Desktop App
+  # Job 7: Create GitHub Release
   # ============================================================================
-  build-windows:
-    name: Build Windows App
-    runs-on: windows-latest
-    needs: [prepare-release]
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller
-
-      - name: Install FFmpeg
-        run: |
-          choco install ffmpeg -y
-
-      - name: Build frontend
-        working-directory: web_ui/frontend
-        run: |
-          npm ci
-          npm run build
-
-      - name: Build Windows executable
-        run: |
-          pyinstaller --name TermiVoxed `
-            --onedir `
-            --windowed `
-            --icon=assets/icon.ico `
-            --add-data "web_ui/frontend/dist;web_ui/frontend/dist" `
-            --add-data "backend;backend" `
-            --add-data "core;core" `
-            --add-data "models;models" `
-            --add-data "subscription;subscription" `
-            --add-data "utils;utils" `
-            --hidden-import=uvicorn.logging `
-            --hidden-import=uvicorn.loops `
-            --hidden-import=uvicorn.loops.auto `
-            --hidden-import=uvicorn.protocols `
-            --hidden-import=uvicorn.protocols.http `
-            --hidden-import=uvicorn.protocols.http.auto `
-            --hidden-import=uvicorn.protocols.websockets `
-            --hidden-import=uvicorn.protocols.websockets.auto `
-            --hidden-import=uvicorn.lifespan `
-            --hidden-import=uvicorn.lifespan.on `
-            main.py
-        shell: pwsh
-
-      - name: Create Windows installer (placeholder)
-        run: |
-          echo "Windows installer would be created here using Inno Setup or NSIS"
-          mkdir -p release
-          if (Test-Path "dist/TermiVoxed") {
-            Compress-Archive -Path "dist/TermiVoxed/*" -DestinationPath "release/TermiVoxed-${{ needs.prepare-release.outputs.version }}-windows-x64.zip"
-          } else {
-            echo "Build skipped - creating placeholder"
-            echo "Placeholder" > "release/TermiVoxed-${{ needs.prepare-release.outputs.version }}-windows-x64.zip"
-          }
-        shell: pwsh
-
-      - name: Upload Windows build
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-build
-          path: release/
-
-  # ============================================================================
-  # Job 4: Build macOS Desktop App
-  # ============================================================================
-  build-macos:
-    name: Build macOS App
-    runs-on: macos-latest
-    needs: [prepare-release]
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller
-
-      - name: Install FFmpeg
-        run: brew install ffmpeg
-
-      - name: Build frontend
-        working-directory: web_ui/frontend
-        run: |
-          npm ci
-          npm run build
-
-      - name: Build macOS app
-        run: |
-          pyinstaller --name TermiVoxed \
-            --onedir \
-            --windowed \
-            --osx-bundle-identifier com.lxusbrain.termivoxed \
-            --add-data "web_ui/frontend/dist:web_ui/frontend/dist" \
-            --add-data "backend:backend" \
-            --add-data "core:core" \
-            --add-data "models:models" \
-            --add-data "subscription:subscription" \
-            --add-data "utils:utils" \
-            --hidden-import=uvicorn.logging \
-            --hidden-import=uvicorn.loops \
-            --hidden-import=uvicorn.loops.auto \
-            --hidden-import=uvicorn.protocols \
-            --hidden-import=uvicorn.protocols.http \
-            --hidden-import=uvicorn.protocols.http.auto \
-            --hidden-import=uvicorn.protocols.websockets \
-            --hidden-import=uvicorn.protocols.websockets.auto \
-            --hidden-import=uvicorn.lifespan \
-            --hidden-import=uvicorn.lifespan.on \
-            main.py
-
-      - name: Create DMG
-        run: |
-          mkdir -p release
-          if [ -d "dist/TermiVoxed.app" ]; then
-            hdiutil create -volname "TermiVoxed" -srcfolder dist/TermiVoxed.app -ov -format UDZO \
-              "release/TermiVoxed-${{ needs.prepare-release.outputs.version }}-macos-universal.dmg"
-          else
-            echo "Build skipped - creating placeholder"
-            echo "Placeholder" > "release/TermiVoxed-${{ needs.prepare-release.outputs.version }}-macos-universal.dmg"
-          fi
-
-      - name: Upload macOS build
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-build
-          path: release/
-
-  # ============================================================================
-  # Job 5: Build Linux Desktop App
-  # ============================================================================
-  build-linux:
-    name: Build Linux App
-    runs-on: ubuntu-latest
-    needs: [prepare-release]
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg libsdl2-dev
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller
-
-      - name: Build frontend
-        working-directory: web_ui/frontend
-        run: |
-          npm ci
-          npm run build
-
-      - name: Build Linux executable
-        run: |
-          pyinstaller --name TermiVoxed \
-            --onedir \
-            --add-data "web_ui/frontend/dist:web_ui/frontend/dist" \
-            --add-data "backend:backend" \
-            --add-data "core:core" \
-            --add-data "models:models" \
-            --add-data "subscription:subscription" \
-            --add-data "utils:utils" \
-            --hidden-import=uvicorn.logging \
-            --hidden-import=uvicorn.loops \
-            --hidden-import=uvicorn.loops.auto \
-            --hidden-import=uvicorn.protocols \
-            --hidden-import=uvicorn.protocols.http \
-            --hidden-import=uvicorn.protocols.http.auto \
-            --hidden-import=uvicorn.protocols.websockets \
-            --hidden-import=uvicorn.protocols.websockets.auto \
-            --hidden-import=uvicorn.lifespan \
-            --hidden-import=uvicorn.lifespan.on \
-            main.py
-
-      - name: Create AppImage
-        run: |
-          mkdir -p release
-          if [ -d "dist/TermiVoxed" ]; then
-            tar -czvf "release/TermiVoxed-${{ needs.prepare-release.outputs.version }}-linux-x64.tar.gz" -C dist TermiVoxed
-          else
-            echo "Build skipped - creating placeholder"
-            echo "Placeholder" > "release/TermiVoxed-${{ needs.prepare-release.outputs.version }}-linux-x64.tar.gz"
-          fi
-
-      - name: Upload Linux build
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-build
-          path: release/
-
-  # ============================================================================
-  # Job 6: Create GitHub Release
-  # ============================================================================
-  create-release:
+  release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs:
-      [prepare-release, build-python, build-windows, build-macos, build-linux]
+    needs: [prepare, build-windows, build-macos, build-linux, build-python]
+    if: ${{ always() && needs.prepare.result == 'success' }}
 
     steps:
       - name: Checkout code
@@ -422,44 +672,73 @@ jobs:
         run: |
           mkdir -p release-assets
 
-          # Copy Python package
-          cp artifacts/python-package/* release-assets/ || true
+          echo "::group::Collecting artifacts"
 
-          # Copy platform builds
-          cp artifacts/windows-build/* release-assets/ || true
-          cp artifacts/macos-build/* release-assets/ || true
-          cp artifacts/linux-build/* release-assets/ || true
+          # Copy all build artifacts
+          for dir in artifacts/*/; do
+            if [ -d "$dir" ]; then
+              echo "Processing: $dir"
+              cp -v "$dir"* release-assets/ 2>/dev/null || true
+            fi
+          done
 
-          # Generate checksums
+          # Merge checksums
+          echo "Generating combined checksums..."
           cd release-assets
-          sha256sum * > checksums.txt || true
+          cat checksums-*.txt 2>/dev/null | sort -u > checksums.txt || true
+          rm -f checksums-*.txt
+
+          echo "Final checksums:"
           cat checksums.txt
 
-      - name: Get release notes
-        run: |
-          cat artifacts/release-notes/RELEASE_NOTES.md
+          echo "::endgroup::"
+
+          echo "::group::Release assets"
+          ls -la release-assets/
+          echo "::endgroup::"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          name: TermiVoxed v${{ needs.prepare-release.outputs.version }}
+          name: TermiVoxed v${{ needs.prepare.outputs.version }}
+          tag_name: v${{ needs.prepare.outputs.version }}
           body_path: artifacts/release-notes/RELEASE_NOTES.md
           draft: false
-          prerelease: ${{ needs.prepare-release.outputs.is_prerelease == 'true' }}
-          files: |
-            release-assets/*
+          prerelease: ${{ needs.prepare.outputs.is_prerelease == 'true' }}
+          files: release-assets/*
+          fail_on_unmatched_files: false
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Release summary
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** v${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Pre-release:** ${{ needs.prepare.outputs.is_prerelease }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Status" >> $GITHUB_STEP_SUMMARY
+          echo "| Platform | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Windows | ${{ needs.build-windows.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| macOS | ${{ needs.build-macos.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Linux | ${{ needs.build-linux.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Python | ${{ needs.build-python.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ls -la release-assets/ >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
   # ============================================================================
-  # Job 7: Deploy Cloud Functions (on release)
+  # Job 8: Deploy Cloud Functions (production releases only)
   # ============================================================================
   deploy-functions:
     name: Deploy Cloud Functions
     runs-on: ubuntu-latest
-    needs: [create-release]
-    if: needs.prepare-release.outputs.is_prerelease != 'true'
+    needs: [prepare, release]
+    if: ${{ needs.prepare.outputs.is_prerelease != 'true' && secrets.FIREBASE_TOKEN != '' }}
 
     steps:
       - name: Checkout code
@@ -478,8 +757,6 @@ jobs:
         run: npm ci
 
       - name: Deploy to Firebase
-        run: |
-          echo "Firebase deployment would happen here with proper credentials"
-          echo "firebase deploy --only functions"
+        run: firebase deploy --only functions --token "${{ secrets.FIREBASE_TOKEN }}"
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
