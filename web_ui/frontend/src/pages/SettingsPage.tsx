@@ -27,6 +27,7 @@ import {
 import { settingsApi, llmApi, ttsApi, exportApi, modelsApi, type TTSProviderInfo, type VoiceCloningModel, type ModelDownloadProgress, type AppConfigUpdate } from '../api/client'
 import { useConsentStore } from '../stores/consentStore'
 import { useDebugStore } from '../stores/debugStore'
+import { useOllamaStore } from '../stores/ollamaStore'
 import { Bug, Download, Terminal } from 'lucide-react'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
@@ -111,6 +112,9 @@ export default function SettingsPage() {
 
   // Consent store for TTS privacy settings
   const { hasTTSConsent, openTTSConsentModal, ttsConsentStatus } = useConsentStore()
+
+  // Ollama store for local AI setup
+  const { openSetupWizard: openOllamaSetup } = useOllamaStore()
 
   // Set default TTS provider mutation
   const setDefaultProviderMutation = useMutation({
@@ -942,6 +946,17 @@ export default function SettingsPage() {
                 </div>
               </div>
             )}
+
+            {/* Ollama Setup Button */}
+            <div className="mt-4 pt-3 border-t border-terminal-border">
+              <button
+                onClick={() => openOllamaSetup()}
+                className="btn-secondary text-sm flex items-center gap-2"
+              >
+                <Settings className="w-4 h-4" />
+                {health?.ollama_available ? 'Manage Ollama Models' : 'Setup Ollama'}
+              </button>
+            </div>
           </div>
 
           {/* OpenAI */}

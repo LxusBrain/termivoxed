@@ -1,8 +1,11 @@
+import { useEffect } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { Home, Settings, Activity, Monitor, Cloud } from 'lucide-react'
 import clsx from 'clsx'
 import { useProviderStatus } from '../hooks/useProviderStatus'
 import UserMenu from './UserMenu'
+import OllamaSetupWizard from './OllamaSetupWizard'
+import { useOllamaStore } from '../stores/ollamaStore'
 
 function StatusIndicator({
   status,
@@ -42,6 +45,23 @@ export default function Layout() {
 
   // Use shared provider status hook
   const { tts, llm } = useProviderStatus()
+
+  // Ollama setup state
+  const { checkFirstRun, firstRunData, openSetupWizard } = useOllamaStore()
+
+  // Check for first run on mount
+  useEffect(() => {
+    checkFirstRun()
+  }, [checkFirstRun])
+
+  // Show setup wizard if needed on first run
+  useEffect(() => {
+    if (firstRunData?.needs_setup && firstRunData.needs_ollama_install) {
+      // Only auto-show on first install, not for other setup needs
+      // Users can trigger it manually from settings for other cases
+      openSetupWizard()
+    }
+  }, [firstRunData, openSetupWizard])
 
   // Determine LLM status
   const llmStatus = llm.isChecking ? null : llm.isConnected
@@ -156,6 +176,9 @@ export default function Layout() {
           <span>Connected</span>
         </span>
       </footer>
+
+      {/* Ollama Setup Wizard Modal */}
+      <OllamaSetupWizard />
     </div>
   )
 }

@@ -125,7 +125,7 @@ from web_ui.api.middleware.rate_limit import RateLimitMiddleware
 app.add_middleware(RateLimitMiddleware)
 
 # Import and include routers
-from web_ui.api.routes import projects, videos, segments, tts, export, llm, settings_routes, fonts, timeline_ws, subscription, favorites, consent, models, auth, payments
+from web_ui.api.routes import projects, videos, segments, tts, export, llm, settings_routes, fonts, timeline_ws, subscription, favorites, consent, models, auth, payments, ollama_setup
 
 # Public routes (no auth required)
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
@@ -144,6 +144,7 @@ app.include_router(favorites.router, prefix="/api/v1/favorites", tags=["Favorite
 app.include_router(subscription.router, prefix="/api/v1", tags=["Subscription"])
 app.include_router(consent.router, prefix="/api/v1/consent", tags=["Privacy Consent"])
 app.include_router(models.router, prefix="/api/v1/models", tags=["AI Models"])
+app.include_router(ollama_setup.router, prefix="/api/v1/ollama", tags=["Ollama Setup"])
 # WebSocket routes (no prefix needed - path defined in router)
 app.include_router(timeline_ws.router, tags=["Timeline WebSocket"])
 
