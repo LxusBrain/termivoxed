@@ -276,12 +276,15 @@ jobs:
               --distpath dist\windows `
               $specFile
           } else {
+            # Use launcher.py as entry point - it starts the FastAPI backend and opens browser
+            # NOT main.py which is a CLI application requiring console
             pyinstaller --name TermiVoxed `
               --onedir `
               --windowed `
               --icon assets\icons\icon.ico `
               --distpath dist\windows `
               --add-data "web_ui/frontend/dist;web_ui/frontend/dist" `
+              --add-data "web_ui/api;web_ui/api" `
               --add-data "backend;backend" `
               --add-data "core;core" `
               --add-data "models;models" `
@@ -297,7 +300,11 @@ jobs:
               --hidden-import=uvicorn.protocols.websockets.auto `
               --hidden-import=uvicorn.lifespan `
               --hidden-import=uvicorn.lifespan.on `
-              main.py
+              --hidden-import=fastapi `
+              --hidden-import=starlette `
+              --hidden-import=pydantic `
+              --collect-submodules=web_ui.api `
+              build_tools/desktop/launcher.py
           }
 
           echo "::endgroup::"
@@ -446,6 +453,8 @@ jobs:
 
           mkdir -p dist/macos release
 
+          # Use launcher.py as entry point - it starts the FastAPI backend and opens browser
+          # NOT main.py which is a CLI application requiring console
           pyinstaller --name TermiVoxed \
             --onedir \
             --windowed \
@@ -453,6 +462,7 @@ jobs:
             --osx-bundle-identifier com.lxusbrain.termivoxed \
             --distpath dist/macos \
             --add-data "web_ui/frontend/dist:web_ui/frontend/dist" \
+            --add-data "web_ui/api:web_ui/api" \
             --add-data "backend:backend" \
             --add-data "core:core" \
             --add-data "models:models" \
@@ -468,7 +478,11 @@ jobs:
             --hidden-import=uvicorn.protocols.websockets.auto \
             --hidden-import=uvicorn.lifespan \
             --hidden-import=uvicorn.lifespan.on \
-            main.py
+            --hidden-import=fastapi \
+            --hidden-import=starlette \
+            --hidden-import=pydantic \
+            --collect-submodules=web_ui.api \
+            build_tools/desktop/launcher.py
 
           echo "::endgroup::"
 
@@ -584,10 +598,13 @@ jobs:
 
           mkdir -p dist/linux release
 
+          # Use launcher.py as entry point - it starts the FastAPI backend and opens browser
+          # NOT main.py which is a CLI application requiring console
           pyinstaller --name TermiVoxed \
             --onedir \
             --distpath dist/linux \
             --add-data "web_ui/frontend/dist:web_ui/frontend/dist" \
+            --add-data "web_ui/api:web_ui/api" \
             --add-data "backend:backend" \
             --add-data "core:core" \
             --add-data "models:models" \
@@ -603,7 +620,11 @@ jobs:
             --hidden-import=uvicorn.protocols.websockets.auto \
             --hidden-import=uvicorn.lifespan \
             --hidden-import=uvicorn.lifespan.on \
-            main.py
+            --hidden-import=fastapi \
+            --hidden-import=starlette \
+            --hidden-import=pydantic \
+            --collect-submodules=web_ui.api \
+            build_tools/desktop/launcher.py
 
           echo "::endgroup::"
 
