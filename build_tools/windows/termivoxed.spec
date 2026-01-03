@@ -45,6 +45,24 @@ hidden_imports = [
     'pydantic',
     'pydantic_settings',
 
+    # FastAPI/Uvicorn (CRITICAL for desktop app)
+    'fastapi',
+    'uvicorn',
+    'uvicorn.logging',
+    'uvicorn.loops',
+    'uvicorn.loops.auto',
+    'uvicorn.protocols',
+    'uvicorn.protocols.http',
+    'uvicorn.protocols.http.auto',
+    'uvicorn.protocols.websockets',
+    'uvicorn.protocols.websockets.auto',
+    'uvicorn.lifespan',
+    'uvicorn.lifespan.on',
+    'starlette',
+    'starlette.routing',
+    'starlette.middleware',
+    'starlette.staticfiles',
+
     # Async support
     'asyncio',
     'aiohttp',
@@ -105,6 +123,20 @@ datas = [
     # Configuration files
     (os.path.join(project_root, '.env.example'), '.'),
 
+    # Frontend dist (CRITICAL - the React UI)
+    (os.path.join(project_root, 'web_ui', 'frontend', 'dist'), os.path.join('web_ui', 'frontend', 'dist')),
+
+    # Backend source (for imports)
+    (os.path.join(project_root, 'backend'), 'backend'),
+    (os.path.join(project_root, 'core'), 'core'),
+    (os.path.join(project_root, 'models'), 'models'),
+    (os.path.join(project_root, 'utils'), 'utils'),
+    (os.path.join(project_root, 'subscription'), 'subscription'),
+    (os.path.join(project_root, 'web_ui', 'api'), os.path.join('web_ui', 'api')),
+
+    # Config module
+    (os.path.join(project_root, 'config.py'), '.'),
+
     # Legal documents (if exists)
     (os.path.join(project_root, 'web_ui', 'frontend', 'public', 'legal'), 'legal'),
 ]
@@ -161,7 +193,7 @@ excludes = [
 
 # Analysis configuration
 a = Analysis(
-    [os.path.join(project_root, 'main.py')],
+    [os.path.join(project_root, 'build_tools', 'desktop', 'launcher.py')],
     pathex=[project_root],
     binaries=binaries,
     datas=datas,
@@ -179,10 +211,13 @@ a = Analysis(
 # Remove duplicate binaries and data files
 pyz = PYZ(a.pure, a.zipped_data, cipher=None)
 
-# Icon path
-icon_path = os.path.join(project_root, 'assets', 'icon.ico')
+# Icon path - correct location in assets/icons/
+icon_path = os.path.join(project_root, 'assets', 'icons', 'icon.ico')
 if not os.path.exists(icon_path):
-    icon_path = None
+    # Fallback to flat location
+    icon_path = os.path.join(project_root, 'assets', 'icon.ico')
+    if not os.path.exists(icon_path):
+        icon_path = None
 
 # EXE configuration
 exe = EXE(
@@ -195,7 +230,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,  # Console app - shows terminal
+    console=False,  # GUI app - no terminal window
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

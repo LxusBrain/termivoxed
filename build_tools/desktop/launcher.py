@@ -310,8 +310,43 @@ def main():
     except KeyboardInterrupt:
         print("\nShutting down...")
     except Exception as e:
-        print(f"Error starting server: {e}")
-        input("Press Enter to exit...")
+        # Log error to file for debugging
+        error_log = get_data_dir() / 'logs' / 'startup_error.log'
+        error_log.parent.mkdir(parents=True, exist_ok=True)
+
+        import traceback
+        error_details = traceback.format_exc()
+
+        with open(error_log, 'w') as f:
+            f.write(f"TermiVoxed Startup Error - {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write("=" * 60 + "\n\n")
+            f.write(f"Error: {e}\n\n")
+            f.write("Full Traceback:\n")
+            f.write(error_details)
+            f.write("\n\nEnvironment:\n")
+            f.write(f"  Python: {sys.version}\n")
+            f.write(f"  Platform: {sys.platform}\n")
+            f.write(f"  Frozen: {is_frozen()}\n")
+            f.write(f"  App Dir: {get_app_dir()}\n")
+            f.write(f"  Data Dir: {get_data_dir()}\n")
+
+        print(f"\nError starting server: {e}")
+        print(f"\nError details have been saved to:\n{error_log}")
+
+        # On Windows, show a message box for better UX
+        if sys.platform == 'win32':
+            try:
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(
+                    0,
+                    f"TermiVoxed failed to start.\n\nError: {e}\n\nCheck the log file for details:\n{error_log}",
+                    "TermiVoxed Error",
+                    0x10  # MB_ICONERROR
+                )
+            except:
+                pass
+        else:
+            input("Press Enter to exit...")
 
 
 if __name__ == '__main__':

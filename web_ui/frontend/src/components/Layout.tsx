@@ -94,7 +94,7 @@ export default function Layout() {
 
           {/* Version badge */}
           <span className="text-[10px] font-mono bg-terminal-elevated px-1.5 py-0.5 rounded text-text-muted border border-terminal-border">
-            v1.0.3
+            v1.0.4
           </span>
         </div>
 

@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="TermiVoxed Web API",
     description="AI Voice-Over Dubbing Tool - Web Interface",
-    version="1.0.3",
+    version="1.0.4",
     lifespan=lifespan,
     redirect_slashes=False,  # Don't redirect /path to /path/ - causes CORS issues
 )
@@ -152,15 +152,89 @@ app.include_router(timeline_ws.router, tags=["Timeline WebSocket"])
 app.mount("/storage", StaticFiles(directory=settings.STORAGE_DIR), name="storage")
 
 
+# Serve React frontend from dist directory
+# This must come after API routes to allow API endpoints to work
+def setup_frontend():
+    """
+    Mount the React frontend static files.
+    The frontend is served at the root path, with API routes taking precedence.
+    """
+    # Determine the frontend dist path
+    # When running from source: web_ui/frontend/dist
+    # When running from PyInstaller bundle: uses _MEIPASS
+    import sys
+
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        # Running as PyInstaller bundle
+        frontend_dist = Path(sys._MEIPASS) / 'web_ui' / 'frontend' / 'dist'
+    else:
+        # Running from source
+        frontend_dist = Path(__file__).parent.parent / 'frontend' / 'dist'
+
+    if frontend_dist.exists():
+        # Mount static assets (js, css, etc.)
+        assets_dir = frontend_dist / 'assets'
+        if assets_dir.exists():
+            app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="frontend_assets")
+
+        # Mount public assets (images, logos)
+        public_assets_dir = frontend_dist / 'assets'  # React puts public assets here too
+        # Also check for a dedicated public folder
+        for asset_folder in ['fonts', 'images', 'icons']:
+            asset_path = frontend_dist / asset_folder
+            if asset_path.exists():
+                app.mount(f"/{asset_folder}", StaticFiles(directory=str(asset_path)), name=f"frontend_{asset_folder}")
+
+        return frontend_dist
+    return None
+
+frontend_dist_path = setup_frontend()
+
+
 @app.get("/")
 async def root():
-    """API root endpoint"""
+    """Serve the React frontend index.html at root, or API info if no frontend"""
+    if frontend_dist_path:
+        from fastapi.responses import FileResponse
+        index_html = frontend_dist_path / "index.html"
+        if index_html.exists():
+            return FileResponse(str(index_html), media_type="text/html")
+
+    # Fallback to API info if no frontend
     return {
         "name": "TermiVoxed Web API",
-        "version": "1.0.3",
+        "version": "1.0.4",
         "description": "AI Voice-Over Dubbing Tool",
         "docs": "/docs",
     }
+
+
+# Catch-all route for React Router - must be after all API routes
+@app.get("/{full_path:path}")
+async def serve_spa(full_path: str):
+    """
+    Serve the React SPA for any unmatched routes.
+    This enables client-side routing in the React app.
+    """
+    if frontend_dist_path:
+        from fastapi.responses import FileResponse
+
+        # Check if it's a static file request
+        file_path = frontend_dist_path / full_path
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(str(file_path))
+
+        # Otherwise serve index.html for client-side routing
+        index_html = frontend_dist_path / "index.html"
+        if index_html.exists():
+            return FileResponse(str(index_html), media_type="text/html")
+
+    # If no frontend, return 404
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=404,
+        content={"detail": "Not found"}
+    )
 
 
 @app.get("/health")
