@@ -8,5 +8,5 @@ Available test modules:
 - test_tts_service: Comprehensive TTS service testing
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.3"
 __author__ = "TermiVoxed Team"

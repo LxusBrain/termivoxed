@@ -1,6 +1,6 @@
 {
   "name": "termivoxed-ui",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "TermiVoxed Web UI - AI Voice-Over Dubbing Tool",
   "type": "module",
   "scripts": {
