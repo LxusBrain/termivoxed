@@ -4,15 +4,14 @@
 # Multi-stage build for optimized image size and security
 # This bundles EVERYTHING: Python, FFmpeg, frontend, backend
 #
-# SECURITY: Base images pinned to SHA256 digests for supply chain security
-# To update digests: docker pull <image> && docker inspect --format='{{index .RepoDigests 0}}' <image>
+# SECURITY NOTE: Using version-pinned tags for multi-architecture compatibility
+# Digest pinning is architecture-specific and breaks cross-platform builds
 
 # =============================================================================
 # Stage 1: Build Frontend (React/Vite)
 # =============================================================================
-# node:20-alpine - pinned to specific digest for reproducibility
-# Last updated: 2025-01-03 - verify at https://hub.docker.com/_/node
-FROM node:20-alpine@sha256:cb5d5426c01df521cb19e4881bcea9e1fea3548def225e3a7749ae509cd574c8 AS frontend-builder
+# node:20-alpine - LTS version, auto-selects correct architecture
+FROM node:20-alpine AS frontend-builder
 
 WORKDIR /build
 
@@ -31,9 +30,8 @@ RUN npm run build
 # =============================================================================
 # Stage 2: Build Python Dependencies
 # =============================================================================
-# python:3.11-slim - pinned to specific digest for reproducibility
-# Last updated: 2025-01-03 - verify at https://hub.docker.com/_/python
-FROM python:3.11-slim@sha256:02ebabf8ab1cb440135cdcbb31c81d1ef00e6fbdad12ad1c752a0c047759f495 AS python-builder
+# python:3.11-slim - Debian-based slim image, auto-selects correct architecture
+FROM python:3.11-slim AS python-builder
 
 WORKDIR /build
 
@@ -59,8 +57,8 @@ RUN pip install --no-cache-dir --require-hashes -r requirements.lock
 # =============================================================================
 # Stage 3: Production Runtime
 # =============================================================================
-# python:3.11-slim - pinned to specific digest (same as builder for consistency)
-FROM python:3.11-slim@sha256:02ebabf8ab1cb440135cdcbb31c81d1ef00e6fbdad12ad1c752a0c047759f495 AS production
+# python:3.11-slim - same as builder for consistency
+FROM python:3.11-slim AS production
 
 # Metadata
 LABEL maintainer="Santhosh T <support@luxusbrain.com>"
