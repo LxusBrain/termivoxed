@@ -279,6 +279,7 @@ jobs:
             pyinstaller --name TermiVoxed `
               --onedir `
               --windowed `
+              --icon assets\icons\icon.ico `
               --distpath dist\windows `
               --add-data "web_ui/frontend/dist;web_ui/frontend/dist" `
               --add-data "backend;backend" `
@@ -448,6 +449,7 @@ jobs:
           pyinstaller --name TermiVoxed \
             --onedir \
             --windowed \
+            --icon assets/icons/icon.icns \
             --osx-bundle-identifier com.lxusbrain.termivoxed \
             --distpath dist/macos \
             --add-data "web_ui/frontend/dist:web_ui/frontend/dist" \
