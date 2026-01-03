@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.5] - 2025-01-03
+
+### Fixed
+- **CRITICAL: Desktop app server startup failure** - App would open browser but show blank page
+  - Fixed missing FastAPI/Starlette hidden imports for PyInstaller
+  - Added comprehensive module imports: fastapi.middleware.cors, starlette.middleware.*, uvicorn submodules
+  - Updated both macOS and Linux build configurations in release workflow
+  - Updated Windows spec file with complete hidden imports list
+
+---
+
 ## [1.0.4] - 2025-01-03
 
 ### Fixed
@@ -112,6 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Type |
 |---------|------|------|
+| 1.0.5 | 2025-01-03 | Critical Fix |
 | 1.0.4 | 2025-01-03 | Critical Fix |
 | 1.0.3 | 2025-01-03 | Feature |
 | 1.0.2 | 2025-01-01 | Security |
@@ -147,7 +159,8 @@ Get-FileHash TermiVoxed-*-Setup.exe -Algorithm SHA256
 
 ---
 
-[Unreleased]: https://github.com/lxusbrain/termivoxed/compare/v1.0.4...HEAD
+[Unreleased]: https://github.com/lxusbrain/termivoxed/compare/v1.0.5...HEAD
+[1.0.5]: https://github.com/lxusbrain/termivoxed/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/lxusbrain/termivoxed/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/lxusbrain/termivoxed/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/lxusbrain/termivoxed/compare/v1.0.1...v1.0.2
