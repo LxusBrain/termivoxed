@@ -1,0 +1,140 @@
+# This workflow syncs releases from the private repository
+# It is triggered manually or by a webhook from the private repo
+#
+# SECURITY: This workflow uses repository secrets for authentication
+# Never commit tokens or sensitive data to this repository
+
+name: Sync Release
+
+on:
+  # Manual trigger with release tag
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to sync (e.g., v1.0.3)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Is this a pre-release?'
+        required: false
+        type: boolean
+        default: false
+
+  # Webhook trigger from private repo (via repository dispatch)
+  repository_dispatch:
+    types: [sync-release]
+
+jobs:
+  sync-release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # Required to create releases
+
+    steps:
+      - name: Checkout public repository
+        uses: actions/checkout@v4
+
+      - name: Get release info
+        id: release_info
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "tag=${{ github.event.client_payload.tag }}" >> $GITHUB_OUTPUT
+            echo "prerelease=${{ github.event.client_payload.prerelease }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.event.inputs.release_tag }}" >> $GITHUB_OUTPUT
+            echo "prerelease=${{ github.event.inputs.prerelease }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download artifacts from private repo
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          PRIVATE_REPO: ${{ secrets.PRIVATE_REPO }}
+        run: |
+          TAG="${{ steps.release_info.outputs.tag }}"
+
+          # Get release ID from private repo
+          RELEASE_INFO=$(curl -s -H "Authorization: token $PRIVATE_REPO_TOKEN" \
+            "https://api.github.com/repos/$PRIVATE_REPO/releases/tags/$TAG")
+
+          RELEASE_ID=$(echo "$RELEASE_INFO" | jq -r '.id')
+
+          if [ "$RELEASE_ID" = "null" ]; then
+            echo "Release $TAG not found in private repository"
+            exit 1
+          fi
+
+          # Download all assets
+          mkdir -p artifacts
+
+          ASSETS=$(echo "$RELEASE_INFO" | jq -r '.assets[] | @base64')
+
+          for asset in $ASSETS; do
+            _jq() {
+              echo "$asset" | base64 --decode | jq -r "$1"
+            }
+
+            NAME=$(_jq '.name')
+            URL=$(_jq '.url')
+
+            echo "Downloading: $NAME"
+            curl -sL -H "Authorization: token $PRIVATE_REPO_TOKEN" \
+              -H "Accept: application/octet-stream" \
+              "$URL" -o "artifacts/$NAME"
+          done
+
+          # Extract release body for notes
+          echo "$RELEASE_INFO" | jq -r '.body' > release_notes.md
+
+      - name: Verify checksums
+        run: |
+          cd artifacts
+          if [ -f checksums.txt ]; then
+            echo "Verifying checksums..."
+            sha256sum -c checksums.txt
+          else
+            echo "Warning: No checksums.txt found"
+          fi
+
+      - name: Create public release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.release_info.outputs.tag }}"
+          PRERELEASE="${{ steps.release_info.outputs.prerelease }}"
+
+          # Build release command
+          RELEASE_FLAGS=""
+          if [ "$PRERELEASE" = "true" ]; then
+            RELEASE_FLAGS="--prerelease"
+          fi
+
+          # Create release with artifacts
+          gh release create "$TAG" \
+            --title "TermiVoxed $TAG" \
+            --notes-file release_notes.md \
+            $RELEASE_FLAGS \
+            artifacts/*
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf artifacts release_notes.md
+
+  # Update changelog in repo
+  update-changelog:
+    needs: sync-release
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update CHANGELOG
+        run: |
+          # This step can be enhanced to auto-update CHANGELOG.md
+          # For now, changelog is manually maintained
+          echo "Changelog update reminder: Update CHANGELOG.md for the new release"

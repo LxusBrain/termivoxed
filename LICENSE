@@ -1,0 +1,122 @@
+TermiVoxed Proprietary License
+Copyright (c) 2024-2025 LxusBrain Technologies. All Rights Reserved.
+
+IMPORTANT: READ THIS LICENSE AGREEMENT CAREFULLY BEFORE USING THIS SOFTWARE.
+
+1. DEFINITIONS
+
+"Software" means the TermiVoxed application, including all executable files,
+libraries, documentation, and associated materials distributed by LxusBrain
+Technologies.
+
+"Licensor" means LxusBrain Technologies.
+
+"User" or "You" means the individual or entity using the Software.
+
+2. LICENSE GRANT
+
+Subject to the terms of this Agreement and payment of applicable subscription
+fees (if any), Licensor grants You a limited, non-exclusive, non-transferable,
+revocable license to:
+
+a) Download and install the Software on devices You own or control
+b) Use the Software for personal or commercial video production purposes
+c) Create derivative works (videos, audio) using the Software's features
+
+3. RESTRICTIONS
+
+You may NOT:
+
+a) Copy, modify, or distribute the Software or any part thereof
+b) Reverse engineer, decompile, disassemble, or attempt to derive the source
+   code of the Software
+c) Remove, alter, or obscure any proprietary notices on the Software
+d) Sublicense, rent, lease, or lend the Software to third parties
+e) Use the Software to develop competing products
+f) Circumvent any technical protection measures in the Software
+g) Use the Software in violation of any applicable laws or regulations
+
+4. INTELLECTUAL PROPERTY
+
+The Software is protected by copyright laws and international treaties.
+LxusBrain Technologies retains all intellectual property rights in the Software,
+including but not limited to copyrights, patents, trade secrets, and trademarks.
+
+5. SUBSCRIPTION AND USAGE LIMITS
+
+a) Certain features of the Software require an active subscription
+b) Usage limits are enforced based on Your subscription tier
+c) Subscription terms are governed by the Terms of Service at
+   https://lxusbrain.com/legal/terms
+
+6. THIRD-PARTY COMPONENTS
+
+The Software incorporates open-source components under their respective licenses:
+
+- FFmpeg (LGPL/GPL) - https://ffmpeg.org/
+- Coqui TTS (MPL-2.0) - https://github.com/coqui-ai/TTS
+- Edge TTS (GPL-3.0) - https://github.com/rany2/edge-tts
+- Ollama (MIT) - https://ollama.com/
+- LangChain (MIT) - https://langchain.com/
+
+These components are provided under their original licenses. This proprietary
+license applies only to the original portions of the Software created by
+LxusBrain Technologies.
+
+7. PRIVACY AND DATA
+
+Your use of the Software is subject to our Privacy Policy at
+https://lxusbrain.com/legal/privacy. The Software processes your content
+locally; we do not access your videos or creative content.
+
+8. WARRANTY DISCLAIMER
+
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. LXUSBRAIN TECHNOLOGIES
+DOES NOT WARRANT THAT THE SOFTWARE WILL BE ERROR-FREE OR UNINTERRUPTED.
+
+9. LIMITATION OF LIABILITY
+
+IN NO EVENT SHALL LXUSBRAIN TECHNOLOGIES BE LIABLE FOR ANY INDIRECT,
+INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING BUT NOT
+LIMITED TO LOSS OF PROFITS, DATA, OR USE, ARISING OUT OF OR RELATED TO THIS
+AGREEMENT OR THE USE OF THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGES.
+
+LXUSBRAIN TECHNOLOGIES' TOTAL LIABILITY SHALL NOT EXCEED THE AMOUNTS PAID BY
+YOU FOR THE SOFTWARE IN THE TWELVE (12) MONTHS PRECEDING THE CLAIM.
+
+10. TERMINATION
+
+a) This license is effective until terminated
+b) Your rights under this license will terminate automatically if You fail to
+   comply with any of its terms
+c) Upon termination, You must cease all use of the Software and destroy all
+   copies in Your possession
+
+11. GOVERNING LAW
+
+This Agreement shall be governed by the laws of India, without regard to its
+conflict of law principles. Any disputes shall be resolved in the courts of
+Bangalore, Karnataka, India.
+
+12. ENTIRE AGREEMENT
+
+This Agreement constitutes the entire agreement between You and LxusBrain
+Technologies regarding the Software and supersedes all prior agreements and
+understandings.
+
+13. CONTACT
+
+For licensing inquiries:
+- Email: legal@lxusbrain.com
+- Website: https://lxusbrain.com
+
+---
+
+By downloading, installing, or using the Software, You acknowledge that You
+have read, understood, and agree to be bound by this License Agreement.
+
+LxusBrain Technologies
+https://lxusbrain.com
