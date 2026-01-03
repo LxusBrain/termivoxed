@@ -66,7 +66,7 @@ LABEL maintainer="Santhosh T <support@luxusbrain.com>"
 LABEL org.opencontainers.image.title="TermiVoxed"
 LABEL org.opencontainers.image.description="AI Voice-Over Dubbing Studio - By LXUSBrain"
 LABEL org.opencontainers.image.vendor="LxusBrain"
-LABEL org.opencontainers.image.version="1.0.4"
+LABEL org.opencontainers.image.version="1.0.5"
 LABEL org.opencontainers.image.url="https://termivoxed.com"
 
 WORKDIR /app
