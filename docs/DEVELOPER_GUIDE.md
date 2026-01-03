@@ -631,6 +631,293 @@ python build_tools/release.py --version 1.0.0 --skip-tests
 
 ---
 
+## 10. Release Infrastructure (Deep Dive)
+
+### How the Build System Works
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    TermiVoxed Build Pipeline                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  1. You create a tag: git tag v1.2.3                             │
+│                          ↓                                        │
+│  2. GitHub detects tag push                                       │
+│                          ↓                                        │
+│  3. .github/workflows/release.yml triggers                        │
+│                          ↓                                        │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │                   PREPARE JOB                               │  │
+│  │  - Extract version from tag (v1.2.3 → 1.2.3)              │  │
+│  │  - Detect if pre-release (alpha/beta/rc)                   │  │
+│  │  - Generate changelog from commits                         │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                          ↓                                        │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │                    TEST JOB                                 │  │
+│  │  - Install Python & Node.js                                │  │
+│  │  - Run linting (flake8, eslint)                            │  │
+│  │  - Run type checks (mypy, tsc)                             │  │
+│  │  - Run unit tests (pytest)                                 │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                          ↓                                        │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
+│  │   WINDOWS   │  │    MACOS    │  │    LINUX    │  (parallel)  │
+│  │    BUILD    │  │    BUILD    │  │    BUILD    │              │
+│  │             │  │             │  │             │              │
+│  │ PyInstaller │  │ PyInstaller │  │ PyInstaller │              │
+│  │      ↓      │  │      ↓      │  │      ↓      │              │
+│  │ Inno Setup  │  │    DMG      │  │   tar.gz    │              │
+│  │      ↓      │  │             │  │             │              │
+│  │  .exe       │  │   .dmg      │  │  .tar.gz    │              │
+│  └─────────────┘  └─────────────┘  └─────────────┘              │
+│                          ↓                                        │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │                  RELEASE JOB                                │  │
+│  │  - Collect all build artifacts                             │  │
+│  │  - Generate checksums (SHA256)                             │  │
+│  │  - Create GitHub Release                                    │  │
+│  │  - Upload all installers & archives                        │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Key Files in the Build System
+
+| File | Purpose |
+|------|---------|
+| `.github/workflows/release.yml` | Main release automation (800+ lines) |
+| `.github/workflows/ci.yml` | Continuous integration (runs on every push) |
+| `build_tools/release.py` | Local build script (for testing locally) |
+| `build_tools/desktop/launcher.py` | Desktop app entry point |
+| `assets/icons/icon.icns` | macOS app icon |
+| `assets/icons/icon.ico` | Windows app icon |
+| `assets/icons/icon.png` | Linux app icon |
+
+### Understanding PyInstaller
+
+PyInstaller takes your Python code and bundles it into a standalone executable.
+
+```
+Your Code (Python files)
+        ↓
+PyInstaller analyzes imports
+        ↓
+Bundles Python interpreter + your code + dependencies
+        ↓
+Single executable (or folder with all files)
+```
+
+**Our configuration:**
+```bash
+pyinstaller --name TermiVoxed \
+  --onedir \                           # Create folder with files (not single exe)
+  --windowed \                         # Hide console window (GUI app)
+  --icon assets/icons/icon.icns \      # App icon
+  --add-data "web_ui/frontend/dist:web_ui/frontend/dist" \  # Include frontend
+  --add-data "backend:backend" \       # Include backend code
+  --hidden-import=uvicorn.logging \    # Manually include hidden imports
+  build_tools/desktop/launcher.py      # Entry point (NOT main.py!)
+```
+
+**IMPORTANT:** The entry point is `build_tools/desktop/launcher.py`, not `main.py`!
+- `launcher.py` = Starts FastAPI server, opens browser (desktop app)
+- `main.py` = CLI application with interactive menus (console app)
+
+### Platform-Specific Details
+
+#### Windows Build
+1. **PyInstaller** creates `dist/windows/TermiVoxed/` folder
+2. **Inno Setup** creates `.exe` installer from that folder
+3. Creates Start Menu shortcuts and optional desktop icon
+4. Supports silent installation: `TermiVoxed-1.0.0-Setup.exe /SILENT`
+
+#### macOS Build
+1. **PyInstaller** creates `dist/macos/TermiVoxed/` folder
+2. We create a `.app` bundle structure
+3. **hdiutil** creates `.dmg` installer
+4. **NOTE:** App is unsigned - users must right-click → Open on first launch
+
+#### Linux Build
+1. **PyInstaller** creates `dist/linux/TermiVoxed/` folder
+2. **tar** creates `.tar.gz` archive
+3. Users extract and run `./TermiVoxed/TermiVoxed`
+
+### Signing and Notarization (Future)
+
+Currently, apps are **unsigned**, which causes security warnings:
+
+**macOS:**
+```
+"TermiVoxed" cannot be opened because Apple cannot check it for malware.
+```
+**Solution for users:** Right-click → Open → Open
+
+**Windows:**
+```
+Windows protected your PC - Microsoft Defender SmartScreen prevented...
+```
+**Solution for users:** Click "More info" → Run anyway
+
+**To remove these warnings (requires paid developer accounts):**
+
+| Platform | Requirement | Cost |
+|----------|-------------|------|
+| macOS | Apple Developer Program | $99/year |
+| Windows | EV Code Signing Certificate | $400-500/year |
+
+---
+
+## 11. Making Your App Public
+
+### Distribution Options
+
+#### Option 1: GitHub Releases (Current - Free)
+
+**Pros:**
+- Free
+- Automatic with our CI/CD
+- Direct download links
+- Version history
+- Changelogs
+
+**Cons:**
+- Unsigned apps (security warnings)
+- Manual download (no auto-update)
+- Not discoverable (users need direct link)
+
+**Current URL:** https://github.com/san-gitlogin/lxb-termivoxed/releases
+
+#### Option 2: Your Own Website (Recommended)
+
+1. **Create a landing page** on lxusbrain.com with:
+   - Product description
+   - Screenshots/demo video
+   - Download buttons linking to GitHub Releases
+   - FAQ and support info
+
+2. **Download links format:**
+```
+https://github.com/san-gitlogin/lxb-termivoxed/releases/latest/download/TermiVoxed-1.0.2-Setup.exe
+https://github.com/san-gitlogin/lxb-termivoxed/releases/latest/download/TermiVoxed-1.0.2-macos.dmg
+https://github.com/san-gitlogin/lxb-termivoxed/releases/latest/download/TermiVoxed-1.0.2-linux-x64.tar.gz
+```
+
+The `/latest/download/` URL automatically points to the most recent release!
+
+#### Option 3: App Stores (Requires Investment)
+
+| Store | Requirements | Cost | Time |
+|-------|--------------|------|------|
+| **Mac App Store** | Apple Developer ($99/yr), App Review | ~$99/yr | 1-2 weeks review |
+| **Microsoft Store** | Microsoft Partner Center | Free (one-time $19) | 1-3 days review |
+| **Homebrew** (macOS) | Open source, formula PR | Free | Community review |
+| **Winget** (Windows) | Manifest PR to Microsoft | Free | Community review |
+| **Flathub** (Linux) | Flatpak packaging | Free | Community review |
+
+#### Option 4: Private Distribution (Beta Testing)
+
+For testing with specific users before public release:
+
+1. **Create a pre-release:**
+   ```bash
+   git tag v1.0.0-beta.1
+   git push origin v1.0.0-beta.1
+   ```
+
+2. **Share private link with testers:**
+   - The release is marked as "Pre-release"
+   - Only people with the direct link can find it
+   - Collect feedback via GitHub Issues or email
+
+### Making the Repository Public
+
+Your repo is currently **private**. To make releases publicly accessible:
+
+**Option A: Keep Repo Private, Make Releases Public**
+- Not directly possible on GitHub
+- Workaround: Host files on your own server
+
+**Option B: Make Entire Repo Public**
+```bash
+# Go to GitHub → Settings → General → Danger Zone
+# Click "Change visibility" → Make public
+```
+
+**Before making public, ensure:**
+- [ ] No secrets/API keys in code (use environment variables)
+- [ ] No hardcoded passwords
+- [ ] LICENSE file exists
+- [ ] README is professional
+- [ ] Remove any internal/sensitive comments
+
+**Option C: Separate Public Release Repo**
+1. Create new public repo: `lxusbrain/termivoxed-releases`
+2. Use GitHub Actions to copy release assets there
+3. Keep source code private
+
+### Auto-Update Feature (Future)
+
+To add automatic updates:
+
+1. **Check for updates on app launch:**
+   ```python
+   response = requests.get(
+       "https://api.github.com/repos/san-gitlogin/lxb-termivoxed/releases/latest"
+   )
+   latest_version = response.json()["tag_name"]
+   if latest_version > current_version:
+       show_update_dialog()
+   ```
+
+2. **Use electron-builder or similar** for automatic download+install
+
+---
+
+## 12. Testing Before Release
+
+### Pre-Release Checklist
+
+```markdown
+## Before Creating a Release
+
+### Code Quality
+- [ ] All TypeScript errors fixed: `cd web_ui/frontend && npx tsc --noEmit`
+- [ ] No Python linting issues: `flake8 backend core`
+- [ ] Tests pass: `pytest tests/`
+
+### Manual Testing
+- [ ] App starts without errors
+- [ ] Can create a new project
+- [ ] Can add videos and segments
+- [ ] TTS works (requires API keys)
+- [ ] Export works (requires FFmpeg)
+
+### Build Testing
+- [ ] CI passes on main branch: `gh run list --limit 1`
+- [ ] No secrets in code: `git grep -i "password\|secret\|api.key"`
+
+### Version
+- [ ] Version follows semantic versioning
+- [ ] CHANGELOG updated (optional)
+```
+
+### Creating Test Releases
+
+```bash
+# Create a beta release (marked as pre-release)
+git tag v1.1.0-beta.1
+git push origin v1.1.0-beta.1
+
+# Users can test, give feedback
+# When ready for production:
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+---
+
 ## Getting Help
 
 1. **Check this guide first**
