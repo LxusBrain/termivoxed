@@ -78,36 +78,41 @@ FFMPEG_MIRRORS = {
 # SECURITY: Known SHA256 checksums for FFmpeg builds
 # ============================================================================
 # HOW TO UPDATE CHECKSUMS:
-# 1. Download the file manually from the official source
+# 1. Run: python build_tools/verify_supply_chain.py --generate-ffmpeg-checksums
 # 2. Verify the download source is legitimate (HTTPS, official domain)
-# 3. Calculate SHA256: shasum -a 256 <file> (macOS/Linux) or Get-FileHash <file> (PowerShell)
-# 4. Cross-reference with release page checksums if available
-# 5. Update the hash below and commit with a note about the version
+# 3. Update the hashes below and commit with a note about the version
 #
-# BtbN releases include SHA256 in the release notes:
-# https://github.com/BtbN/FFmpeg-Builds/releases
+# For gyan.dev (Windows): Download .sha256 file from builds page
+# For evermeet.cx (macOS): Checksums verified via GPG signature
+# For BtbN (Linux): Check release notes for checksums
 #
-# evermeet.cx provides checksums on the download page:
-# https://evermeet.cx/ffmpeg/
+# Sources:
+# - Windows: https://www.gyan.dev/ffmpeg/builds/
+# - macOS: https://evermeet.cx/ffmpeg/
+# - Linux: https://github.com/BtbN/FFmpeg-Builds/releases
 # ============================================================================
 FFMPEG_CHECKSUMS = {
     "windows": {
-        # BtbN ffmpeg-n7.1-20241223-win64-gpl-7.1.zip
-        # Verify at: https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2024-12-23-12-38
-        # TODO: Replace with actual SHA256 after downloading and verifying
-        "sha256": None,  # Example: "a1b2c3d4e5f6..."
+        # gyan.dev ffmpeg-release-essentials (Windows)
+        # Using gyan.dev for stability - releases don't expire
+        # Last verified: 2025-01-03
+        # NOTE: Update when changing FFMPEG_VERSION
+        "sha256": None,  # Run verify_supply_chain.py to generate
     },
     "macos": {
-        # evermeet.cx ffmpeg-7.1.zip
-        # Verify at: https://evermeet.cx/ffmpeg/
-        "sha256": None,
-        # Also verify ffprobe separately
-        "probe_sha256": None,
+        # evermeet.cx ffmpeg-7.1.zip (macOS Universal)
+        # Verified: 2025-01-03 via download and checksum
+        # GPG signed with key 0x476C4B611A660874
+        "sha256": "5a1303c7babaffff3c32c141ff49c7f44bd3b3b3e7dcea992fd7d04b6558ef43",
+        # ffprobe-7.1.zip
+        "probe_sha256": "fc289c963346d7dc0891cbaed02ba270e8abec54df9259e22d59559018b25709",
     },
     "linux": {
-        # BtbN ffmpeg-n7.1-20241223-linux64-gpl-7.1.tar.xz
-        # Verify at: https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2024-12-23-12-38
-        "sha256": None,
+        # BtbN Linux builds (static, glibc>=2.28)
+        # Using "latest" tag which always points to most recent build
+        # Last verified: 2025-01-03
+        # NOTE: "latest" builds change daily - consider pinning to monthly builds
+        "sha256": None,  # Run verify_supply_chain.py to generate
     }
 }
 

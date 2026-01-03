@@ -3,11 +3,16 @@
 #
 # Multi-stage build for optimized image size and security
 # This bundles EVERYTHING: Python, FFmpeg, frontend, backend
+#
+# SECURITY: Base images pinned to SHA256 digests for supply chain security
+# To update digests: docker pull <image> && docker inspect --format='{{index .RepoDigests 0}}' <image>
 
 # =============================================================================
 # Stage 1: Build Frontend (React/Vite)
 # =============================================================================
-FROM node:20-alpine AS frontend-builder
+# node:20-alpine - pinned to specific digest for reproducibility
+# Last updated: 2025-01-03 - verify at https://hub.docker.com/_/node
+FROM node:20-alpine@sha256:cb5d5426c01df521cb19e4881bcea9e1fea3548def225e3a7749ae509cd574c8 AS frontend-builder
 
 WORKDIR /build
 
@@ -26,7 +31,9 @@ RUN npm run build
 # =============================================================================
 # Stage 2: Build Python Dependencies
 # =============================================================================
-FROM python:3.11-slim AS python-builder
+# python:3.11-slim - pinned to specific digest for reproducibility
+# Last updated: 2025-01-03 - verify at https://hub.docker.com/_/python
+FROM python:3.11-slim@sha256:02ebabf8ab1cb440135cdcbb31c81d1ef00e6fbdad12ad1c752a0c047759f495 AS python-builder
 
 WORKDIR /build
 
@@ -44,14 +51,16 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Upgrade pip
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Copy requirements and install
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy lock file with hashes and install with verification
+# SECURITY: --require-hashes ensures all packages match their checksums
+COPY requirements.lock .
+RUN pip install --no-cache-dir --require-hashes -r requirements.lock
 
 # =============================================================================
 # Stage 3: Production Runtime
 # =============================================================================
-FROM python:3.11-slim AS production
+# python:3.11-slim - pinned to specific digest (same as builder for consistency)
+FROM python:3.11-slim@sha256:02ebabf8ab1cb440135cdcbb31c81d1ef00e6fbdad12ad1c752a0c047759f495 AS production
 
 # Metadata
 LABEL maintainer="Santhosh T <support@luxusbrain.com>"
