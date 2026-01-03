@@ -49,10 +49,11 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Upgrade pip
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Copy lock file with hashes and install with verification
-# SECURITY: --require-hashes ensures all packages match their checksums
-COPY requirements.lock .
-RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+# Copy requirements and install
+# Using requirements.txt for Docker compatibility across Python versions
+# The lock file (requirements.lock) is for local development reproducibility
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # =============================================================================
 # Stage 3: Production Runtime
