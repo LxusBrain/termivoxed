@@ -231,11 +231,27 @@ jobs:
           choco install innosetup -y
           echo "C:\Program Files (x86)\Inno Setup 6" >> $env:GITHUB_PATH
 
-      - name: Install FFmpeg
+      - name: Bundle FFmpeg
         run: |
-          echo "::group::Installing FFmpeg"
-          choco install ffmpeg -y
+          echo "::group::Bundling FFmpeg for Windows"
+          python build_tools/bundle_ffmpeg.py --platform windows
           echo "::endgroup::"
+
+      - name: Verify FFmpeg Bundle
+        run: |
+          echo "::group::Verifying FFmpeg bundle"
+          if (!(Test-Path "vendor/ffmpeg/windows/bin/ffmpeg.exe")) {
+            Write-Error "FFmpeg not bundled! vendor/ffmpeg/windows/bin/ffmpeg.exe not found"
+            exit 1
+          }
+          if (!(Test-Path "vendor/ffmpeg/windows/bin/ffprobe.exe")) {
+            Write-Error "FFprobe not bundled! vendor/ffmpeg/windows/bin/ffprobe.exe not found"
+            exit 1
+          }
+          Write-Host "FFmpeg bundle verified successfully"
+          & vendor/ffmpeg/windows/bin/ffmpeg.exe -version
+          echo "::endgroup::"
+        shell: pwsh
 
       - name: Install Python dependencies
         run: |
@@ -290,6 +306,7 @@ jobs:
               --add-data "models;models" `
               --add-data "subscription;subscription" `
               --add-data "utils;utils" `
+              --add-data "vendor/ffmpeg/windows;vendor/ffmpeg/windows" `
               --hidden-import=uvicorn.logging `
               --hidden-import=uvicorn.loops `
               --hidden-import=uvicorn.loops.auto `
@@ -421,10 +438,26 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web_ui/frontend/package-lock.json
 
-      - name: Install FFmpeg
+      - name: Bundle FFmpeg
         run: |
-          echo "::group::Installing FFmpeg"
-          brew install ffmpeg
+          echo "::group::Bundling FFmpeg for macOS"
+          python build_tools/bundle_ffmpeg.py --platform macos
+          echo "::endgroup::"
+
+      - name: Verify FFmpeg Bundle
+        run: |
+          echo "::group::Verifying FFmpeg bundle"
+          if [ ! -f "vendor/ffmpeg/macos/bin/ffmpeg" ]; then
+            echo "ERROR: FFmpeg not bundled! vendor/ffmpeg/macos/bin/ffmpeg not found"
+            exit 1
+          fi
+          if [ ! -f "vendor/ffmpeg/macos/bin/ffprobe" ]; then
+            echo "ERROR: FFprobe not bundled! vendor/ffmpeg/macos/bin/ffprobe not found"
+            exit 1
+          fi
+          echo "FFmpeg bundle verified successfully"
+          chmod +x vendor/ffmpeg/macos/bin/ffmpeg vendor/ffmpeg/macos/bin/ffprobe
+          vendor/ffmpeg/macos/bin/ffmpeg -version
           echo "::endgroup::"
 
       - name: Install Python dependencies
@@ -468,6 +501,7 @@ jobs:
             --add-data "models:models" \
             --add-data "subscription:subscription" \
             --add-data "utils:utils" \
+            --add-data "vendor/ffmpeg/macos:vendor/ffmpeg/macos" \
             --hidden-import=uvicorn.logging \
             --hidden-import=uvicorn.loops \
             --hidden-import=uvicorn.loops.auto \
@@ -569,7 +603,29 @@ jobs:
         run: |
           echo "::group::Installing system dependencies"
           sudo apt-get update
-          sudo apt-get install -y ffmpeg libsdl2-dev
+          sudo apt-get install -y libsdl2-dev
+          echo "::endgroup::"
+
+      - name: Bundle FFmpeg
+        run: |
+          echo "::group::Bundling FFmpeg for Linux"
+          python3 build_tools/bundle_ffmpeg.py --platform linux
+          echo "::endgroup::"
+
+      - name: Verify FFmpeg Bundle
+        run: |
+          echo "::group::Verifying FFmpeg bundle"
+          if [ ! -f "vendor/ffmpeg/linux/bin/ffmpeg" ]; then
+            echo "ERROR: FFmpeg not bundled! vendor/ffmpeg/linux/bin/ffmpeg not found"
+            exit 1
+          fi
+          if [ ! -f "vendor/ffmpeg/linux/bin/ffprobe" ]; then
+            echo "ERROR: FFprobe not bundled! vendor/ffmpeg/linux/bin/ffprobe not found"
+            exit 1
+          fi
+          echo "FFmpeg bundle verified successfully"
+          chmod +x vendor/ffmpeg/linux/bin/ffmpeg vendor/ffmpeg/linux/bin/ffprobe
+          vendor/ffmpeg/linux/bin/ffmpeg -version
           echo "::endgroup::"
 
       - name: Install Python dependencies
@@ -610,6 +666,7 @@ jobs:
             --add-data "models:models" \
             --add-data "subscription:subscription" \
             --add-data "utils:utils" \
+            --add-data "vendor/ffmpeg/linux:vendor/ffmpeg/linux" \
             --hidden-import=uvicorn.logging \
             --hidden-import=uvicorn.loops \
             --hidden-import=uvicorn.loops.auto \

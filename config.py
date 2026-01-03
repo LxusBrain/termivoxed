@@ -113,9 +113,9 @@ def get_bundled_ffmpeg_path() -> tuple[Optional[str], Optional[str]]:
     # Check bundled location
     # When running from source
     source_vendor = Path(__file__).parent / "vendor" / "ffmpeg" / plat / "bin"
-    # When running from PyInstaller bundle
+    # When running from PyInstaller bundle (includes platform subfolder)
     if getattr(sys, 'frozen', False):
-        bundle_vendor = Path(sys._MEIPASS) / "vendor" / "ffmpeg" / "bin"
+        bundle_vendor = Path(sys._MEIPASS) / "vendor" / "ffmpeg" / plat / "bin"
     else:
         bundle_vendor = None
 

@@ -585,11 +585,12 @@ class WindowsBuilder(PlatformBuilder):
                  "--add-data", f"{PROJECT_ROOT / 'web_ui' / 'frontend' / 'dist'};web_ui/frontend/dist",
                  "--add-data", f"{PROJECT_ROOT / 'backend'};backend",
                  "--add-data", f"{PROJECT_ROOT / 'core'};core",
+                 "--add-data", f"{PROJECT_ROOT / 'vendor' / 'ffmpeg' / 'windows'};vendor/ffmpeg/windows",
                  "--hidden-import=uvicorn.logging",
                  "--hidden-import=uvicorn.protocols.http.auto",
                  "--hidden-import=uvicorn.protocols.websockets.auto",
                  "--hidden-import=uvicorn.lifespan.on",
-                 str(PROJECT_ROOT / "main.py")],
+                 str(PROJECT_ROOT / "build_tools" / "desktop" / "launcher.py")],
                 logger=self.logger
             )
 
@@ -782,11 +783,12 @@ class MacOSBuilder(PlatformBuilder):
              "--add-data", f"{PROJECT_ROOT / 'web_ui' / 'frontend' / 'dist'}:web_ui/frontend/dist",
              "--add-data", f"{PROJECT_ROOT / 'backend'}:backend",
              "--add-data", f"{PROJECT_ROOT / 'core'}:core",
+             "--add-data", f"{PROJECT_ROOT / 'vendor' / 'ffmpeg' / 'macos'}:vendor/ffmpeg/macos",
              "--hidden-import=uvicorn.logging",
              "--hidden-import=uvicorn.protocols.http.auto",
              "--hidden-import=uvicorn.protocols.websockets.auto",
              "--hidden-import=uvicorn.lifespan.on",
-             str(PROJECT_ROOT / "main.py")],
+             str(PROJECT_ROOT / "build_tools" / "desktop" / "launcher.py")],
             logger=self.logger
         )
 
@@ -928,11 +930,12 @@ class LinuxBuilder(PlatformBuilder):
              "--add-data", f"{PROJECT_ROOT / 'web_ui' / 'frontend' / 'dist'}:web_ui/frontend/dist",
              "--add-data", f"{PROJECT_ROOT / 'backend'}:backend",
              "--add-data", f"{PROJECT_ROOT / 'core'}:core",
+             "--add-data", f"{PROJECT_ROOT / 'vendor' / 'ffmpeg' / 'linux'}:vendor/ffmpeg/linux",
              "--hidden-import=uvicorn.logging",
              "--hidden-import=uvicorn.protocols.http.auto",
              "--hidden-import=uvicorn.protocols.websockets.auto",
              "--hidden-import=uvicorn.lifespan.on",
-             str(PROJECT_ROOT / "main.py")],
+             str(PROJECT_ROOT / "build_tools" / "desktop" / "launcher.py")],
             logger=self.logger
         )
 
