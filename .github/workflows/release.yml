@@ -738,25 +738,40 @@ jobs:
     name: Deploy Cloud Functions
     runs-on: ubuntu-latest
     needs: [prepare, release]
-    if: ${{ needs.prepare.outputs.is_prerelease != 'true' && secrets.FIREBASE_TOKEN != '' }}
+    if: ${{ needs.prepare.outputs.is_prerelease != 'true' }}
 
     steps:
+      - name: Check Firebase token
+        id: check-token
+        run: |
+          if [ -z "${{ secrets.FIREBASE_TOKEN }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::warning::FIREBASE_TOKEN not configured, skipping deployment"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout code
+        if: steps.check-token.outputs.skip != 'true'
         uses: actions/checkout@v4
 
       - name: Set up Node.js
+        if: steps.check-token.outputs.skip != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "18"
 
       - name: Install Firebase CLI
+        if: steps.check-token.outputs.skip != 'true'
         run: npm install -g firebase-tools
 
       - name: Install function dependencies
+        if: steps.check-token.outputs.skip != 'true'
         working-directory: cloud_functions/functions
         run: npm ci
 
       - name: Deploy to Firebase
+        if: steps.check-token.outputs.skip != 'true'
         run: firebase deploy --only functions --token "${{ secrets.FIREBASE_TOKEN }}"
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
