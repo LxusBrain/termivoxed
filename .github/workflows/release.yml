@@ -307,9 +307,16 @@ jobs:
           echo "::group::Creating Windows installer"
 
           $version = "${{ needs.prepare.outputs.version }}"
-          $distDir = "dist\windows\TermiVoxed"
+          $workDir = (Get-Location).Path
+          $distDir = "$workDir\dist\windows\TermiVoxed"
+          $releaseDir = "$workDir\release"
 
-          # Create Inno Setup script
+          # Debug: Show what exists
+          echo "Working directory: $workDir"
+          echo "Looking for dist directory..."
+          Get-ChildItem -Path "dist" -Recurse -Depth 2 | Select-Object FullName
+
+          # Create Inno Setup script with absolute paths
           $issContent = @"
           [Setup]
           AppId={{B5A7C8D9-E6F1-4A2B-8C3D-E4F5A6B7C8D9}}
@@ -319,7 +326,7 @@ jobs:
           AppPublisherURL=https://lxusbrain.com
           DefaultDirName={autopf}\TermiVoxed
           DisableProgramGroupPage=yes
-          OutputDir=release
+          OutputDir=$releaseDir
           OutputBaseFilename=TermiVoxed-$version-Setup
           Compression=lzma2/ultra64
           SolidCompression=yes
@@ -347,6 +354,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path build\windows
           New-Item -ItemType Directory -Force -Path release
           Set-Content -Path "build\windows\installer.iss" -Value $issContent
+
+          # Show the generated script for debugging
+          echo "Generated installer.iss:"
+          Get-Content "build\windows\installer.iss"
 
           # Run Inno Setup
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "build\windows\installer.iss"
@@ -691,12 +702,12 @@ jobs:
           rm -f checksums-*.txt
 
           echo "Final checksums:"
-          cat checksums.txt
+          cat checksums.txt || echo "No checksums generated"
 
           echo "::endgroup::"
 
           echo "::group::Release assets"
-          ls -la release-assets/
+          ls -la .
           echo "::endgroup::"
 
       - name: Create GitHub Release
