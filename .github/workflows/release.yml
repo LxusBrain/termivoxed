@@ -494,6 +494,7 @@ jobs:
             --icon assets/icons/icon.icns \
             --osx-bundle-identifier com.lxusbrain.termivoxed \
             --distpath dist/macos \
+            --paths . \
             --add-data "web_ui/frontend/dist:web_ui/frontend/dist" \
             --add-data "web_ui/api:web_ui/api" \
             --add-data "backend:backend" \
@@ -502,6 +503,11 @@ jobs:
             --add-data "subscription:subscription" \
             --add-data "utils:utils" \
             --add-data "vendor/ffmpeg/macos:vendor/ffmpeg/macos" \
+            --add-data "config.py:." \
+            --add-data "web_ui/frontend/public/legal:legal" \
+            --hidden-import=loguru \
+            --collect-all=subscription \
+            --collect-all=utils \
             --hidden-import=fastapi \
             --hidden-import=fastapi.applications \
             --hidden-import=fastapi.middleware \
@@ -553,6 +559,8 @@ jobs:
             --hidden-import=starlette.templating \
             --hidden-import=starlette.types \
             --hidden-import=pydantic \
+            --hidden-import=pydantic_settings \
+            --collect-submodules=pydantic_settings \
             --collect-submodules=web_ui.api \
             build_tools/desktop/launcher.py
 
@@ -697,6 +705,7 @@ jobs:
           pyinstaller --name TermiVoxed \
             --onedir \
             --distpath dist/linux \
+            --paths . \
             --add-data "web_ui/frontend/dist:web_ui/frontend/dist" \
             --add-data "web_ui/api:web_ui/api" \
             --add-data "backend:backend" \
@@ -705,6 +714,11 @@ jobs:
             --add-data "subscription:subscription" \
             --add-data "utils:utils" \
             --add-data "vendor/ffmpeg/linux:vendor/ffmpeg/linux" \
+            --add-data "config.py:." \
+            --add-data "web_ui/frontend/public/legal:legal" \
+            --hidden-import=loguru \
+            --collect-all=subscription \
+            --collect-all=utils \
             --hidden-import=fastapi \
             --hidden-import=fastapi.applications \
             --hidden-import=fastapi.middleware \
@@ -756,6 +770,8 @@ jobs:
             --hidden-import=starlette.templating \
             --hidden-import=starlette.types \
             --hidden-import=pydantic \
+            --hidden-import=pydantic_settings \
+            --collect-submodules=pydantic_settings \
             --collect-submodules=web_ui.api \
             build_tools/desktop/launcher.py
 

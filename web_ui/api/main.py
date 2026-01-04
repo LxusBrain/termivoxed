@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="TermiVoxed Web API",
     description="AI Voice-Over Dubbing Tool - Web Interface",
-    version="1.0.5",
+    version="1.0.6",
     lifespan=lifespan,
     redirect_slashes=False,  # Don't redirect /path to /path/ - causes CORS issues
 )
@@ -203,7 +203,7 @@ async def root():
     # Fallback to API info if no frontend
     return {
         "name": "TermiVoxed Web API",
-        "version": "1.0.5",
+        "version": "1.0.6",
         "description": "AI Voice-Over Dubbing Tool",
         "docs": "/docs",
     }
